@@ -357,7 +357,21 @@ const GameRoom = () => {
         } catch (error) {
           console.error('Ability execution error:', error);
           setToast({ message: error.message, type: 'error' });
-          // Don't clear ability state on error so user can try again
+          
+          // Clear ability state if it was blocked by JAM
+          if (error.message.includes('jammed') || error.message.includes('JAM')) {
+            setActiveAbility(null);
+            
+            // Also explicitly clear any active ability state in the database
+            try {
+              update(ref(database, `rooms/${roomId}/players/${playerId}`), {
+                activeAbilityState: null
+              });
+            } catch (dbError) {
+              console.error("Error clearing ability state:", dbError);
+            }
+          }
+          // Don't clear ability state on other errors so user can try again
           return;
         }
       } else {

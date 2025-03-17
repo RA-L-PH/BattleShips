@@ -39,23 +39,47 @@ export const createRoom = async (roomId, adminId) => {
   }
 };
 
+// Make sure this is properly implemented in the main attack function
 export const makeMove = async (roomId, playerId, row, col) => {
   try {
     const roomRef = ref(database, `rooms/${roomId}`);
     const snapshot = await get(roomRef);
     const room = snapshot.val();
-
-    if (room.gameOver) {
-      throw new Error('Game is already over');
-    }
-
-    if (!room || room.currentTurn !== playerId) {
-      throw new Error('Not your turn');
-    }
-
+    
+    if (!room) throw new Error('Room not found');
+    if (room.gameOver) throw new Error('Game is already over');
+    if (room.currentTurn !== playerId) throw new Error('Not your turn');
+    
+    // Get opponent ID first
     const opponentId = Object.keys(room.players).find(id => id !== playerId);
     if (!opponentId) throw new Error('Opponent not found');
-
+    
+    // Then check for JAM protection
+    if (checkJamProtection(room, opponentId)) {
+      const updates = {};
+      
+      // Mark JAM as used after blocking this attack
+      updates[`/rooms/${roomId}/players/${opponentId}/abilities/JAM/used`] = true;
+      
+      // Record the jam event
+      updates[`/rooms/${roomId}/moves/${Date.now()}`] = {
+        type: 'jam',
+        targetAbility: 'Attack',
+        defenderId: opponentId,
+        attackerId: playerId,
+        targetRow: row,
+        targetCol: col,
+        timestamp: Date.now()
+      };
+      
+      // Switch turns back to the JAM user
+      updates[`/rooms/${roomId}/currentTurn`] = opponentId;
+      
+      await update(ref(database), updates);
+      throw new Error('Attack was jammed by opponent! Their JAM defense protected them.');
+    }
+    
+    // Continue with normal attack logic if not jammed
     const opponentGrid = room.players[opponentId].PlacementData?.grid;
     if (!opponentGrid) throw new Error('Opponent grid not found');
 

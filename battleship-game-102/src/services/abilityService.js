@@ -142,8 +142,11 @@ export const executeNuke = async (roomId, playerId, targetRow, targetCol) => {
       // Mark JAM as used after blocking this attack
       updates[`rooms/${roomId}/players/${opponentId}/abilities/JAM/used`] = true;
       
-      // Mark NUKE as used even though it was blocked
+      // Mark the current ability as used even though it was blocked
       updates[`rooms/${roomId}/players/${playerId}/abilities/NUKE/used`] = true;
+      
+      // Clear any ability state
+      updates[`rooms/${roomId}/players/${playerId}/activeAbilityState`] = null;
       
       // Record the jam
       updates[`rooms/${roomId}/moves/${Date.now()}`] = {
@@ -253,8 +256,14 @@ export const executeAnnihilate = async (roomId, playerId, targetRow, targetCol, 
       // Mark JAM as used after blocking this attack
       updates[`rooms/${roomId}/players/${opponentId}/abilities/JAM/used`] = true;
       
-      // Mark ability as used even though it was blocked
+      // Mark the current ability as used even though it was blocked
       updates[`rooms/${roomId}/players/${playerId}/abilities/ANNIHILATE/used`] = true;
+      
+      // Clear any ability state
+      updates[`rooms/${roomId}/players/${playerId}/activeAbilityState`] = null;
+      
+      // If ability has specific state (like orientation), clear that too
+      updates[`rooms/${roomId}/players/${playerId}/annihilateOrientation`] = null;
       
       // Record the jam
       updates[`rooms/${roomId}/moves/${Date.now()}`] = {
@@ -466,8 +475,11 @@ export const executeHacker = async (roomId, playerId) => {
       // Mark JAM as used after blocking this attack
       updates[`rooms/${roomId}/players/${opponentId}/abilities/JAM/used`] = true;
       
-      // Mark ability as used even though it was blocked
+      // Mark the current ability as used even though it was blocked
       updates[`rooms/${roomId}/players/${playerId}/abilities/HACKER/used`] = true;
+      
+      // Clear any ability state
+      updates[`rooms/${roomId}/players/${playerId}/activeAbilityState`] = null;
       
       // Record the jam
       updates[`rooms/${roomId}/moves/${Date.now()}`] = {
@@ -559,14 +571,23 @@ export const executeReinforcement = async (roomId, playerId, targetRow, targetCo
     if (!playerGrid) throw new Error('Player grid not found');
     
     // Check if opponent has JAM protection
+    const opponentId = Object.keys(room.players).find(id => id !== playerId);
+    if (!opponentId) throw new Error('Opponent not found');
+    
     if (checkJamProtection(room, opponentId)) {
       const updates = {};
       
       // Mark JAM as used after blocking this attack
       updates[`rooms/${roomId}/players/${opponentId}/abilities/JAM/used`] = true;
       
-      // Mark ability as used even though it was blocked
+      // Mark the current ability as used even though it was blocked
       updates[`rooms/${roomId}/players/${playerId}/abilities/REINFORCEMENT/used`] = true;
+      
+      // Clear any ability state
+      updates[`rooms/${roomId}/players/${playerId}/activeAbilityState`] = null;
+      
+      // If ability has specific state (like orientation), clear that too
+      updates[`rooms/${roomId}/players/${playerId}/reinforcementOrientation`] = null;
       
       // Record the jam
       updates[`rooms/${roomId}/moves/${Date.now()}`] = {
@@ -647,8 +668,9 @@ export const executeReinforcement = async (roomId, playerId, targetRow, targetCo
     };
     
     // Switch turns
-    const opponentId = Object.keys(room.players).find(id => id !== playerId);
     updates[`rooms/${roomId}/currentTurn`] = opponentId;
+    
+    updates[`rooms/${roomId}/players/${playerId}/reinforcementOrientation`] = null;
     
     await update(ref(database), updates);
     return { success: true, shipId };
@@ -688,8 +710,11 @@ export const executeScanner = async (roomId, playerId, targetRow, targetCol) => 
       // Mark JAM as used after blocking this attack
       updates[`rooms/${roomId}/players/${opponentId}/abilities/JAM/used`] = true;
       
-      // Mark ability as used even though it was blocked
+      // Mark the current ability as used even though it was blocked
       updates[`rooms/${roomId}/players/${playerId}/abilities/SCANNER/used`] = true;
+      
+      // Clear any ability state
+      updates[`rooms/${roomId}/players/${playerId}/activeAbilityState`] = null;
       
       // Record the jam
       updates[`rooms/${roomId}/moves/${Date.now()}`] = {
@@ -785,8 +810,11 @@ export const executeGodsHand = async (roomId, playerId, quadrantIndex) => {
       // Mark JAM as used after blocking this attack
       updates[`rooms/${roomId}/players/${opponentId}/abilities/JAM/used`] = true;
       
-      // Mark ability as used even though it was blocked
+      // Mark the current ability as used even though it was blocked
       updates[`rooms/${roomId}/players/${playerId}/abilities/GODS_HAND/used`] = true;
+      
+      // Clear any ability state
+      updates[`rooms/${roomId}/players/${playerId}/activeAbilityState`] = null;
       
       // Record the jam
       updates[`rooms/${roomId}/moves/${Date.now()}`] = {
