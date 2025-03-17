@@ -1,0 +1,192 @@
+#root {
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 2rem;
+  text-align: center;
+}
+
+.logo {
+  height: 6em;
+  padding: 1.5em;
+  will-change: filter;
+  transition: filter 300ms;
+}
+.logo:hover {
+  filter: drop-shadow(0 0 2em #646cffaa);
+}
+.logo.react:hover {
+  filter: drop-shadow(0 0 2em #61dafbaa);
+}
+
+@keyframes logo-spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  a:nth-of-type(2) .logo {
+    animation: logo-spin infinite 20s linear;
+  }
+}
+
+.card {
+  padding: 2em;
+}
+
+.read-the-docs {
+  color: #888;
+}
+
+/* JAM Shield Animation */
+.jam-shield-active {
+  position: relative;
+  overflow: hidden;
+}
+
+.jam-shield-active::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 10;
+  pointer-events: none;
+  background: radial-gradient(circle, rgba(0,212,255,0.2) 0%, rgba(9,9,121,0.1) 100%);
+  border-radius: 8px;
+  box-shadow: 0 0 15px 5px rgba(0,212,255,0.5);
+  animation: pulse-shield 2s infinite;
+}
+
+@keyframes pulse-shield {
+  0% {
+    opacity: 0.5;
+    box-shadow: 0 0 10px 2px rgba(0,212,255,0.4);
+  }
+  50% {
+    opacity: 0.8;
+    box-shadow: 0 0 20px 8px rgba(0,212,255,0.7);
+  }
+  100% {
+    opacity: 0.5;
+    box-shadow: 0 0 10px 2px rgba(0,212,255,0.4);
+  }
+}
+
+/* Responsive styles for small screens (6" diagonal minimum) */
+@media screen and (max-width: 360px) {
+  /* GameBoard cell size adjustments */
+  .grid-container {
+    max-width: 98vw;
+    margin: 0 auto;
+  }
+  
+  /* Make cells smaller on tiny screens */
+  .grid-container .w-8,
+  .grid-container .sm\:w-10,
+  .grid-container .md\:w-12 {
+    width: 1.5rem !important; /* Force override */
+  }
+  
+  .grid-container .h-8,
+  .grid-container .sm\:h-10,
+  .grid-container .md\:h-12 {
+    height: 1.5rem !important;  /* Force override */
+  }
+  
+  /* Make fonts smaller */
+  .grid-container .text-xl,
+  .grid-container .sm\:text-2xl,
+  .grid-container .md\:text-3xl {
+    font-size: 0.875rem !important;
+  }
+  
+  /* Toast adjustments */
+  .fixed.top-20 {
+    top: 0.5rem;
+    max-width: 90vw;
+    font-size: 0.75rem;
+    padding: 0.5rem;
+  }
+  
+  /* Game status panel */
+  .max-w-2xl {
+    padding: 0.5rem !important;
+  }
+  
+  /* Ship display adjustments */
+  .w-12, .h-12 {
+    width: 1.5rem !important;
+    height: 1.5rem !important;
+  }
+  
+  /* Better spacing in AbilityPanel */
+  .AbilityPanel button {
+    padding: 0.25rem 0.5rem !important;
+    font-size: 0.75rem !important;
+  }
+
+  /* Ship placement specific styles */
+  .ship-placement-container {
+    max-width: calc(100vw - 32px);
+    overflow-x: auto;
+    overflow-y: auto;
+    margin: 0 auto;
+    -webkit-overflow-scrolling: touch; /* Better scrolling on iOS */
+  }
+  
+  .ship-placement-container::-webkit-scrollbar {
+    height: 3px;
+    width: 3px;
+  }
+  
+  .ship-placement-container::-webkit-scrollbar-track {
+    background: #2d3748;
+    border-radius: 3px;
+  }
+  
+  .ship-placement-container::-webkit-scrollbar-thumb {
+    background-color: #4a5568;
+    border-radius: 3px;
+  }
+  
+  /* Make ship cells smaller on tiny screens */
+  .ship-draggable .w-7,
+  .ship-draggable .h-7 {
+    width: 1.5rem !important;
+    height: 1.5rem !important;
+  }
+  
+  /* Make grid cells smaller to fit better */
+  .grid-cols-8 .w-8,
+  .grid-cols-8 .h-8 {
+    width: 1.75rem !important;
+    height: 1.75rem !important;
+  }
+}
+
+/* Fix Toast component for small screens */
+@media screen and (max-width: 480px) {
+  .fixed.top-20 {
+    top: 1rem;
+    max-width: 90vw;
+    font-size: 0.75rem;
+    padding: 0.5rem 0.75rem;
+    z-index: 50;
+  }
+}
+
+/* Add utility class for extra small screens */
+@media (min-width: 360px) {
+  .xs\:w-8 {
+    width: 2rem;
+  }
+  
+  .xs\:h-8 {
+    height: 2rem;
+  }
+}
