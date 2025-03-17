@@ -4,7 +4,7 @@ import { ref, get, update, onValue, getDatabase } from 'firebase/database';
 import { database } from '../services/firebaseConfig';
 import { executeNuke, executeScanner, executeHacker, executeReinforcement, installJam, installCounter, executeGodsHand, executeAnnihilate } from '../services/abilityService';
 import { makeMove } from '../services/gameService';  // Import makeMove from gameService, not abilityService
-import Stopwatch from '../components/Stopwatch';
+import Stopwatch from '../components/StopWatch'; // Note capital 'W'
 import GameStatus from '../components/GameStatus';
 import GameBoard from '../components/GameBoard';
 import AbilityPanel from '../components/AbilityPanel';
