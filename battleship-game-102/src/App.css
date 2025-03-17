@@ -58,7 +58,8 @@
   background: radial-gradient(circle, rgba(0,212,255,0.2) 0%, rgba(9,9,121,0.1) 100%);
   border-radius: 8px;
   box-shadow: 0 0 15px 5px rgba(0,212,255,0.5);
-  animation: pulse-shield 2s infinite;
+  animation: pulse-shield 3s ease-in-out infinite;
+  will-change: opacity, box-shadow;
 }
 
 @keyframes pulse-shield {
@@ -190,10 +191,90 @@
   }
 }
 
+/* Add these styles to your App.css file */
+/* Extra small screen breakpoint utilities */
+@media (min-width: 360px) {
+  .xs\:w-8 { width: 2rem; }
+  .xs\:h-8 { height: 2rem; }
+  .xs\:gap-2 { gap: 0.5rem; }
+  .xs\:p-3 { padding: 0.75rem; }
+  .xs\:text-sm { font-size: 0.875rem; }
+  .xs\:flex-row { flex-direction: row; }
+}
+
+/* Ship placement specific mobile improvements */
+.ship-placement-container {
+  max-width: calc(100vw - 16px);
+  overflow-x: auto;
+  overflow-y: auto;
+  margin: 0 auto;
+  -webkit-overflow-scrolling: touch; /* Better scrolling on iOS */
+}
+
+@media screen and (max-width: 359px) {
+  /* Make cells even smaller on tiny screens */
+  .ship-placement-grid .cell,
+  .ship-placement-grid .ship-cell {
+    width: 1.25rem !important;
+    height: 1.25rem !important;
+  }
+  
+  /* More compact buttons */
+  .ship-placement-controls button {
+    padding: 0.375rem 0.5rem !important;
+    font-size: 0.75rem !important;
+  }
+}
+
 .battleship-bg {
   background-image: url('./assets/background.jpg');
   background-size: cover;
   background-position: center;
   background-repeat: no-repeat;
   background-attachment: fixed;
+}
+
+/* Better mobile experience */
+@media (max-width: 640px) {
+  /* Force hardware acceleration for smoother animations */
+  * {
+    -webkit-backface-visibility: hidden;
+    -moz-backface-visibility: hidden;
+    -ms-backface-visibility: hidden;
+    backface-visibility: hidden;
+  }
+
+  /* Better touch targets */
+  button, 
+  [role="button"], 
+  .clickable {
+    min-height: 42px;
+    min-width: 42px;
+  }
+  
+  /* Smoother scrolling */
+  html, body {
+    -webkit-overflow-scrolling: touch;
+  }
+  
+  /* Prevent double-tap zoom on iOS */
+  .no-double-tap-zoom {
+    touch-action: manipulation;
+  }
+}
+
+/* Make game board cells responsive with dynamic sizing */
+.grid-container {
+  width: 100%;
+  max-width: min(95vw, 480px);
+  margin: 0 auto;
+}
+
+/* Top of screen compact status bar */
+.game-status-bar {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  background-color: rgba(26, 32, 44, 0.9);
+  backdrop-filter: blur(4px);
 }

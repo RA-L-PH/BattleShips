@@ -54,67 +54,66 @@ const Home = () => {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center battleship-bg p-4">
-      <div className="bg-gray-800/90 backdrop-blur-sm p-6 sm:p-8 rounded-lg shadow-lg max-w-md w-full">
-        <div className="flex justify-center mb-6">
-          <img src={logo} alt="Battleship Logo" className="h-24 w-auto" />
+    <div className="min-h-screen flex items-center justify-center battleship-bg p-3">
+      <div className="bg-gray-800/90 backdrop-blur-sm p-5 sm:p-7 rounded-lg shadow-lg max-w-sm w-full">
+        <div className="flex justify-center mb-4">
+          <img src={logo} alt="Battleship Logo" className="h-auto w-auto" />
         </div>
-        <h1 className="text-3xl font-bold text-white mb-6 text-center">Battleship</h1>
         
         {error && (
-          <div className="bg-red-500 text-white p-2 sm:p-3 rounded mb-4 text-center text-sm sm:text-base">
+          <div className="bg-red-500 text-white p-2 rounded mb-3 text-center text-sm">
             {error}
           </div>
         )}
 
-        <div className="space-y-4 sm:space-y-6">
+        <div className="space-y-3 sm:space-y-4">
           <div className="relative">
             <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
-              <FaUser className="text-gray-400" />
+              <FaUser className="text-gray-400 text-sm" />
             </div>
             <input
               type="text"
               placeholder="Enter Your Name"
               value={playerName}
               onChange={(e) => setPlayerName(e.target.value)}
-              className="w-full py-2 sm:py-3 pl-10 pr-4 bg-gray-700 text-white rounded-lg text-sm sm:text-base"
+              className="w-full py-2 pl-9 pr-3 bg-gray-700 text-white rounded-lg text-sm"
             />
           </div>
           
           <div className="relative">
             <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
-              <FaGamepad className="text-gray-400" />
+              <FaGamepad className="text-gray-400 text-sm" />
             </div>
             <input
               type="text"
               placeholder="Enter Room Code"
               value={roomId}
               onChange={(e) => setRoomId(e.target.value)}
-              className="w-full py-2 sm:py-3 pl-10 pr-4 bg-gray-700 text-white rounded-lg uppercase text-sm sm:text-base"
+              className="w-full py-2 pl-9 pr-3 bg-gray-700 text-white rounded-lg uppercase text-sm"
             />
           </div>
           
           <button
             onClick={handleJoinRoom}
             disabled={loading || !roomId || !playerName}
-            className="w-full py-2 sm:py-3 bg-green-600 text-white rounded-lg 
+            className="w-full py-2 bg-green-600 text-white rounded-lg 
                      hover:bg-green-700 disabled:opacity-50 flex items-center justify-center gap-2"
           >
             {loading ? (
               <>
-                <div className="w-4 h-4 sm:w-5 sm:h-5 border-3 sm:border-4 border-white border-t-transparent rounded-full animate-spin"></div>
-                <span className="text-sm sm:text-base">Joining...</span>
+                <div className="w-4 h-4 border-3 border-white border-t-transparent rounded-full animate-spin"></div>
+                <span className="text-sm">Joining...</span>
               </>
             ) : (
               <>
-                <span className="text-sm sm:text-base">Join Game</span>
-                <FaArrowRight />
+                <span className="text-sm">Join Game</span>
+                <FaArrowRight className="text-sm" />
               </>
             )}
           </button>
         </div>
 
-        <div className="mt-4 sm:mt-6 text-center text-xs sm:text-sm text-gray-400">
+        <div className="mt-3 sm:mt-4 text-center text-xs text-gray-400">
           <p>A game code is required to join.</p>
           <p>Ask the admin to provide you with a game code.</p>
         </div>

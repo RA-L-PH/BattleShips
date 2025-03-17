@@ -48,9 +48,8 @@ const AdminLogin = () => {
     <div className="min-h-screen flex items-center justify-center battleship-bg">
       <div className="bg-gray-800/90 backdrop-blur-sm p-8 rounded-lg shadow-lg w-96">
         <div className="flex justify-center mb-6">
-          <img src={logo} alt="Battleship Logo" className="h-24 w-auto" />
+          <img src={logo} alt="Battleship Logo" className="h-auto w-auto" />
         </div>
-        <h1 className="text-3xl font-bold text-white mb-2 text-center">Battleship</h1>
         <h2 className="text-xl text-gray-400 mb-8 text-center">Admin Portal</h2>
         
         {error && (
@@ -103,11 +102,6 @@ const AdminLogin = () => {
               </>
             )}
           </button>
-        </div>
-        
-        <div className="mt-8 text-center text-sm text-gray-500">
-          <p>Access restricted to authorized game administrators.</p>
-          <p className="mt-2">Please contact IT support if you need access.</p>
         </div>
       </div>
     </div>

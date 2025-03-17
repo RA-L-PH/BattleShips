@@ -11,6 +11,7 @@ import AbilityPanel from '../components/AbilityPanel';
 import Toast from '../components/Toast';
 import AbilityIndicator from '../components/AbilityIndicator';
 import TurnTimer from '../components/TurnTimer';
+import AbilityInfoBubble from '../components/AbilityInfoBubble';
 
 const GameRoom = () => {
   const navigate = useNavigate();
@@ -627,6 +628,7 @@ const GameRoom = () => {
         )}
 
         <AbilityIndicator abilities={playerAbilities} />
+        <AbilityInfoBubble playerAbilities={playerAbilities} />
       </div>
     </div>
   );
