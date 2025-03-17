@@ -10,6 +10,7 @@ import GameBoard from '../components/GameBoard';
 import AbilityPanel from '../components/AbilityPanel';
 import Toast from '../components/Toast';
 import AbilityIndicator from '../components/AbilityIndicator';
+import TurnTimer from '../components/TurnTimer';
 
 const GameRoom = () => {
   const navigate = useNavigate();
@@ -339,10 +340,9 @@ const GameRoom = () => {
               result = await installCounter(roomId, playerId);
               break;
             case 'GODS_HAND': {
-              // Calculate quadrant index (0-3) from coordinates
-              const quadrantIndex = Math.floor(y / 4) * 2 + Math.floor(x / 4);
-              result = await executeGodsHand(roomId, playerId, quadrantIndex);
-              break;
+              // Disable player-triggered God's Hand
+              setError("God's Hand ability can only be used by the admin");
+              return;
             }
             case 'ANNIHILATE':
               result = await executeAnnihilate(roomId, playerId, y, x, annihilateVertical);
@@ -419,6 +419,34 @@ const GameRoom = () => {
     }
   };
 
+  const handleTurnTimeout = async () => {
+    // Only proceed if it's still the player's turn
+    if (isMyTurn && !gameOver) {
+      try {
+        setToast({
+          message: "Turn time expired! Switching to opponent's turn.",
+          type: 'warning',
+          duration: 3000
+        });
+        
+        // Get opponent Id
+        const opponentId = Object.keys(gameState.players).find(id => id !== playerId);
+        
+        // Switch turn to opponent
+        await update(ref(database, `rooms/${roomId}`), {
+          currentTurn: opponentId,
+          lastAction: {
+            type: 'timeout',
+            playerId: playerId,
+            timestamp: Date.now()
+          }
+        });
+      } catch (error) {
+        console.error("Error handling turn timeout:", error);
+      }
+    }
+  };
+
   const countdown = gameState?.countdown;
 
   if (!gameState) return <div className="min-h-screen flex items-center justify-center bg-gray-900 text-white text-xl">Loading...</div>;
@@ -434,6 +462,12 @@ const GameRoom = () => {
             gameState={gameState?.status || 'waiting'}
             player={{ name: playerName, shipsRemaining: countRemainingShips(playerGrid) }}
             opponent={{ name: opponentName, shipsRemaining: countRemainingShips(opponentGrid) }}
+          />
+
+          <TurnTimer 
+            isYourTurn={isMyTurn} 
+            onTimeUp={handleTurnTimeout} 
+            gameOver={gameOver} 
           />
           
           {gameOver && (

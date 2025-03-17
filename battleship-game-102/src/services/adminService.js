@@ -1,5 +1,6 @@
 import { ref, set, get, update } from 'firebase/database';
 import { database } from './firebaseConfig';
+import { executeGodsHand } from './abilityService';
 
 export const createGameAsAdmin = async (roomId, adminId) => {
   try {
@@ -115,6 +116,17 @@ export const joinRoomAsAdmin = async (roomId, adminId) => {
     return true;
   } catch (error) {
     console.error('Error joining room as admin:', error);
+    throw error;
+  }
+};
+
+// Admin function to execute God's Hand ability
+export const adminTriggerGodsHand = async (roomId, targetPlayerId, quadrantIndex) => {
+  try {
+    // Call the executeGodsHand function with isAdminTriggered = true
+    return await executeGodsHand(roomId, targetPlayerId, quadrantIndex, true);
+  } catch (error) {
+    console.error("Error executing God's Hand as admin:", error);
     throw error;
   }
 };

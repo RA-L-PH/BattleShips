@@ -17,7 +17,7 @@ const AbilityPanel = ({
   useEffect(() => {
     // Calculate active abilities
     const active = Object.entries(abilities)
-      .filter(([_, data]) => data.active && !data.used)
+      .filter(([key, data]) => key !== 'GODS_HAND' && data.active && !data.used)
       .map(([key, data]) => ({ key, ...ABILITIES[key] }));
     
     setActiveAbilities(active);

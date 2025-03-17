@@ -533,3 +533,37 @@ export const makeAttack = async (roomId, playerId, targetRow, targetCol) => {
     throw error;
   }
 };
+
+// Add this function to your gameService.js file
+
+export const recordTurnTimeout = async (roomId, playerId) => {
+  try {
+    // First, fetch the room data from the database
+    const roomRef = ref(database, `rooms/${roomId}`);
+    const snapshot = await get(roomRef);
+    const room = snapshot.val();
+    
+    if (!room) throw new Error('Room not found');
+    
+    const opponentId = Object.keys(room.players).find(id => id !== playerId);
+    if (!opponentId) throw new Error('Opponent not found');
+    
+    const updates = {};
+    
+    // Record the timeout event
+    updates[`/rooms/${roomId}/moves/${Date.now()}`] = {
+      type: 'timeout',
+      playerId,
+      timestamp: Date.now()
+    };
+    
+    // Switch turns
+    updates[`/rooms/${roomId}/currentTurn`] = opponentId;
+    
+    await update(ref(database), updates);
+    return true;
+  } catch (error) {
+    console.error('Error recording turn timeout:', error);
+    throw error;
+  }
+};

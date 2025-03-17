@@ -225,7 +225,7 @@ export const executeNuke = async (roomId, playerId, targetRow, targetCol) => {
     
     // In executeNuke, executeAnnihilate, etc. after hits are recorded
     if (hitCount > 0) {
-      await checkForCounterAttack(roomId, playerId, opponentId, targetRow, targetCol, hitCount);
+      await checkForCounterAttack(roomId, playerId, opponentId, targetRow, targetCol, hitCount, false);
     }
     
     return { success: true, hitCount, affectedCells };
@@ -339,7 +339,7 @@ export const executeAnnihilate = async (roomId, playerId, targetRow, targetCol, 
     
     // In executeNuke, executeAnnihilate, etc. after hits are recorded
     if (hitCount > 0) {
-      await checkForCounterAttack(roomId, playerId, opponentId, targetRow, targetCol, hitCount);
+      await checkForCounterAttack(roomId, playerId, opponentId, targetRow, targetCol, hitCount, false);
     }
     
     return { success: true, hitCount, hitCells };
@@ -781,7 +781,7 @@ export const executeScanner = async (roomId, playerId, targetRow, targetCol) => 
 };
 
 // Execute God's Hand ability (destroy one 4x4 quadrant)
-export const executeGodsHand = async (roomId, playerId, quadrantIndex) => {
+export const executeGodsHand = async (roomId, playerId, quadrantIndex, isAdminTriggered = false) => {
   try {
     const roomRef = ref(database, `rooms/${roomId}`);
     const snapshot = await get(roomRef);
@@ -789,12 +789,10 @@ export const executeGodsHand = async (roomId, playerId, quadrantIndex) => {
     
     if (!room) throw new Error('Room not found');
     if (room.gameOver) throw new Error('Game is already over');
-    if (room.currentTurn !== playerId) throw new Error('Not your turn');
     
-    // Check if player has this ability
-    const playerAbilities = room.players[playerId]?.abilities || {};
-    if (!playerAbilities.GODS_HAND?.active || playerAbilities.GODS_HAND.used) {
-      throw new Error("God's Hand ability not available");
+    // Only allow admin-triggered executions
+    if (!isAdminTriggered) {
+      throw new Error("God's Hand ability can only be used by the admin");
     }
     
     const opponentId = Object.keys(room.players).find(id => id !== playerId);
@@ -803,44 +801,13 @@ export const executeGodsHand = async (roomId, playerId, quadrantIndex) => {
     const opponentGrid = room.players[opponentId].PlacementData?.grid;
     if (!opponentGrid) throw new Error('Opponent grid not found');
     
-    // Check if opponent has JAM protection
-    if (checkJamProtection(room, opponentId)) {
-      const updates = {};
-      
-      // Mark JAM as used after blocking this attack
-      updates[`rooms/${roomId}/players/${opponentId}/abilities/JAM/used`] = true;
-      
-      // Mark the current ability as used even though it was blocked
-      updates[`rooms/${roomId}/players/${playerId}/abilities/GODS_HAND/used`] = true;
-      
-      // Clear any ability state
-      updates[`rooms/${roomId}/players/${playerId}/activeAbilityState`] = null;
-      
-      // Record the jam
-      updates[`rooms/${roomId}/moves/${Date.now()}`] = {
-        type: 'jam',
-        targetAbility: 'GODS_HAND',
-        defenderId: opponentId,
-        attackerId: playerId,
-        targetRow: 0,
-        targetCol: 0,
-        timestamp: Date.now()
-      };
-      
-      // Switch turns back to the defender (JAM user)
-      updates[`rooms/${roomId}/currentTurn`] = opponentId;
-      
-      await update(ref(database), updates);
-      throw new Error('Your GODS_HAND was jammed by opponent! Their JAM defense protected them.');
-    }
-    
     // Determine quadrant coordinates (0-3)
     if (quadrantIndex < 0 || quadrantIndex > 3) {
       throw new Error('Invalid quadrant index (should be 0-3)');
     }
     
-    const startRow = quadrantIndex < 2 ? 0 : 4;
-    const startCol = quadrantIndex % 2 === 0 ? 0 : 4;
+    const startRow = Math.floor(quadrantIndex / 2) * 4;
+    const startCol = (quadrantIndex % 2) * 4;
     
     // Mark all cells in the quadrant as hit
     const updates = {};
@@ -862,24 +829,32 @@ export const executeGodsHand = async (roomId, playerId, quadrantIndex) => {
     // Mark ability as used
     updates[`rooms/${roomId}/players/${playerId}/abilities/GODS_HAND/used`] = true;
     
-    // Record the move
+    // Record the move - add a special flag to indicate this should bypass counter
     updates[`rooms/${roomId}/moves/${Date.now()}`] = {
       type: 'ability',
       name: 'GODS_HAND',
       playerId,
       quadrant: quadrantIndex,
       hitCount: hitShips.length,
+      adminTriggered: isAdminTriggered,
+      bypassCounter: true, // Add this flag to indicate it should bypass counter
       timestamp: Date.now()
     };
     
-    // Switch turns
-    updates[`rooms/${roomId}/currentTurn`] = opponentId;
+    // Switch turns if not admin triggered
+    if (!isAdminTriggered) {
+      updates[`rooms/${roomId}/currentTurn`] = opponentId;
+    }
     
     await update(ref(database), updates);
+    
+    // Skip counter-attack check because God's Hand ignores all defenses
+    
     return { 
       success: true, 
       quadrant: quadrantIndex,
-      hitCount: hitShips.length
+      hitCount: hitShips.length,
+      hitShips: hitShips
     };
   } catch (error) {
     console.error("Error using God's Hand ability:", error);
@@ -888,8 +863,13 @@ export const executeGodsHand = async (roomId, playerId, quadrantIndex) => {
 };
 
 // Helper functions for ability interactions
-export const checkForCounterAttack = async (roomId, attackerId, defenderId, attackRow, attackCol, hitCount = 1) => {
+export const checkForCounterAttack = async (roomId, attackerId, defenderId, attackRow, attackCol, hitCount = 1, bypassCounter = false) => {
   try {
+    // If this is a God's Hand attack (which bypasses all defenses), skip counter check
+    if (bypassCounter) {
+      return false;
+    }
+    
     const roomRef = ref(database, `rooms/${roomId}`);
     const snapshot = await get(roomRef);
     const room = snapshot.val();

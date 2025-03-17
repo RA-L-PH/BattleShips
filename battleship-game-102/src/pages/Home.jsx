@@ -2,6 +2,8 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { joinRoom } from '../services/gameService';
 import { FaUser, FaGamepad, FaArrowRight } from 'react-icons/fa';
+import logo from '../assets/logo.png';
+import '../App.css';
 
 const Home = () => {
   const navigate = useNavigate();
@@ -52,12 +54,12 @@ const Home = () => {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-900 p-4">
-      <div className="bg-gray-800 p-4 sm:p-8 rounded-lg shadow-lg w-full max-w-xs sm:max-w-sm">
-        <div className="flex items-center justify-center mb-4">
-          <FaGamepad size={32} className="text-blue-500 mr-3" />
-          <h1 className="text-2xl sm:text-3xl font-bold text-white text-center">Battleships Assault Protocol</h1>
+    <div className="min-h-screen flex items-center justify-center battleship-bg p-4">
+      <div className="bg-gray-800/90 backdrop-blur-sm p-6 sm:p-8 rounded-lg shadow-lg max-w-md w-full">
+        <div className="flex justify-center mb-6">
+          <img src={logo} alt="Battleship Logo" className="h-24 w-auto" />
         </div>
+        <h1 className="text-3xl font-bold text-white mb-6 text-center">Battleship</h1>
         
         {error && (
           <div className="bg-red-500 text-white p-2 sm:p-3 rounded mb-4 text-center text-sm sm:text-base">

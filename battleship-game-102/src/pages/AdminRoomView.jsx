@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { getDatabase, ref, onValue, update } from 'firebase/database';
-import { startGame, endGame } from '../services/adminService';
+import { startGame, endGame, adminTriggerGodsHand } from '../services/adminService';
 import GameBoard from '../components/GameBoard';
 import { ABILITIES, grantAbility } from '../services/abilityService';
 import { FaExchangeAlt, FaCrosshairs, FaShieldAlt } from 'react-icons/fa';
@@ -14,6 +14,8 @@ const AdminRoomView = () => {
   const [loading, setLoading] = useState(true);
   const [switchPositions, setSwitchPositions] = useState(false);
   const [counterMoves, setCounterMoves] = useState([]);
+  const [showGodsHandControls, setShowGodsHandControls] = useState(false);
+  const [godsHandTargetPlayer, setGodsHandTargetPlayer] = useState(null);
   const adminId = localStorage.getItem('adminId');
   const adminDisplayName = localStorage.getItem('adminDisplayName') || 'Admin';
 
@@ -104,6 +106,23 @@ const AdminRoomView = () => {
       await grantAbility(roomId, playerId, abilityKey);
     } catch (err) {
       setError(err.message);
+    }
+  };
+
+  const handleGodsHandActivation = async (playerIndex, quadrantIndex) => {
+    try {
+      if (!players[playerIndex]) return;
+      
+      const targetPlayerId = Object.keys(room.players)[playerIndex];
+      const opponentId = Object.keys(room.players).find(id => id !== targetPlayerId);
+      
+      if (!targetPlayerId || !opponentId) return;
+      
+      await adminTriggerGodsHand(roomId, targetPlayerId, quadrantIndex);
+      setShowGodsHandControls(false);
+      // Show success message or toast
+    } catch (error) {
+      setError(error.message);
     }
   };
 
@@ -371,6 +390,7 @@ const AdminRoomView = () => {
                                 
                                 {/* Ability rows */}
                                 {Object.entries(ABILITIES)
+                                  .filter(([key, _]) => key !== 'GODS_HAND')  // Filter out GODS_HAND
                                   .filter(([_, ability]) => ability.type === abilityType)
                                   .map(([key, ability]) => {
                                     const playerAbility = player.abilities?.[key];
@@ -449,6 +469,69 @@ const AdminRoomView = () => {
               </div>
             </div>
           </div>
+          
+          {gameStarted && !gameOver && (
+            <div className="mb-8 bg-gray-800 p-4 rounded-lg">
+              <h3 className="text-xl font-bold text-white mb-4">Admin Special: God's Hand</h3>
+              
+              {!showGodsHandControls ? (
+                <button
+                  onClick={() => setShowGodsHandControls(true)}
+                  className="px-4 py-2 bg-purple-600 text-white rounded hover:bg-purple-700"
+                >
+                  Activate God's Hand
+                </button>
+              ) : (
+                <div className="space-y-4">
+                  <p className="text-gray-300">Select which player will be credited with using God's Hand:</p>
+                  <div className="flex gap-4">
+                    {players.map((player, index) => (
+                      <button
+                        key={player.playerId}
+                        onClick={() => setGodsHandTargetPlayer(index)}
+                        className={`px-4 py-2 rounded ${
+                          godsHandTargetPlayer === index ? 'bg-blue-600' : 'bg-gray-600'
+                        }`}
+                      >
+                        {player.name}
+                      </button>
+                    ))}
+                  </div>
+                  
+                  {godsHandTargetPlayer !== null && (
+                    <>
+                      <p className="text-gray-300">Select a quadrant on enemy's board:</p>
+                      <div className="grid grid-cols-2 gap-2 max-w-xs mx-auto">
+                        {[0, 1, 2, 3].map((quadrant) => (
+                          <button
+                            key={quadrant}
+                            onClick={() => handleGodsHandActivation(godsHandTargetPlayer, quadrant)}
+                            className="relative p-8 border-2 border-purple-500 bg-gray-700 hover:bg-gray-600 rounded"
+                          >
+                            <div className="absolute inset-0 flex items-center justify-center text-white text-xl">
+                              Quadrant {quadrant + 1}
+                            </div>
+                          </button>
+                        ))}
+                      </div>
+                      <p className="text-xs text-gray-400 mt-2">
+                        God's Hand will hit ALL cells in the selected quadrant, ignoring all defenses
+                      </p>
+                      <button
+                        onClick={() => {
+                          setShowGodsHandControls(false);
+                          setGodsHandTargetPlayer(null);
+                        }}
+                        className="px-4 py-2 bg-gray-600 text-white rounded hover:bg-gray-700"
+                      >
+                        Cancel
+                      </button>
+                    </>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
           
           {gameStarted && room.moves && (
             <div className="mt-8">
@@ -554,6 +637,17 @@ const AdminRoomView = () => {
                               Triggered by hit at {originalCell}
                             </div>
                           );
+                        } else if (move.type === 'timeout') {
+                          action = (
+                            <div>
+                              <span className="text-yellow-400">Turn expired</span>
+                              <div className="text-xs mt-1 bg-yellow-800 px-1.5 py-0.5 rounded inline-block">
+                                TIMEOUT
+                              </div>
+                            </div>
+                          );
+                          target = "N/A";
+                          result = "Turn skipped";
                         } else {
                           // Regular attack
                           action = (
