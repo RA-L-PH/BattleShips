@@ -21,7 +21,8 @@ const SHIPS = [
   { id: 'carrier', name: 'Carrier', size: 5, color: 'bg-blue-500' },
   { id: 'battleship', name: 'Battleship', size: 4, color: 'bg-green-500' },
   { id: 'cruiser', name: 'Cruiser', size: 3, color: 'bg-yellow-500' },
-  { id: 'destroyer', name: 'Destroyer', size: 2, color: 'bg-red-500' }
+  { id: 'destroyer', name: 'Destroyer', size: 2, color: 'bg-red-500' },
+  { id: 'scout', name: 'Scout', size: 2, color: 'bg-violet-500' }
 ];
 
 const GRID_SIZE = 8;

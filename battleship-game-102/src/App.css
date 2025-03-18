@@ -178,6 +178,13 @@
     padding: 0.5rem 0.75rem;
     z-index: 50;
   }
+  .fixed.bottom-10 {
+    bottom: 1rem;
+    max-width: 90vw;
+    font-size: 0.75rem;
+    padding: 0.5rem 0.75rem;
+    z-index: 50;
+  }
 }
 
 /* Add utility class for extra small screens */

@@ -4,7 +4,7 @@ import { getDatabase, ref, onValue, update } from 'firebase/database';
 import { startGame, endGame, adminTriggerGodsHand } from '../services/adminService';
 import GameBoard from '../components/GameBoard';
 import { ABILITIES, grantAbility } from '../services/abilityService';
-import { FaExchangeAlt, FaCrosshairs, FaShieldAlt } from 'react-icons/fa';
+import { FaExchangeAlt, FaCrosshairs, FaShieldAlt, FaPlay, FaPause } from 'react-icons/fa';
 
 const AdminRoomView = () => {
   const { roomId } = useParams();
@@ -123,6 +123,20 @@ const AdminRoomView = () => {
       // Show success message or toast
     } catch (error) {
       setError(error.message);
+    }
+  };
+
+  const handleTogglePause = async () => {
+    try {
+      const isPaused = room?.isPaused || false;
+      const db = getDatabase();
+      await update(ref(db, `rooms/${roomId}`), {
+        isPaused: !isPaused
+      });
+
+      // No need to track pause time anymore since we're using direct time values
+    } catch (err) {
+      setError(err.message);
     }
   };
 
@@ -689,6 +703,19 @@ const AdminRoomView = () => {
               </div>
             </div>
           )}
+          
+          <div className="mt-8 flex flex-wrap gap-3">
+            {/* Existing buttons */}
+            
+            {gameStarted && !gameOver && (
+              <button
+                onClick={handleTogglePause}
+                className={`px-4 py-2 rounded text-white flex items-center ${room?.isPaused ? 'bg-green-600' : 'bg-yellow-600'}`}
+              >
+                {room?.isPaused ? <><FaPlay className="mr-2" /> Resume Game</> : <><FaPause className="mr-2" /> Pause Game</>}
+              </button>
+            )}
+          </div>
         </div>
       </div>
     </div>

@@ -46,7 +46,7 @@ const AbilityInfoBubble = ({ playerAbilities }) => {
       <div 
         className={`fixed bottom-20 left-4 bg-gray-800 rounded-lg shadow-xl p-4 transition-all duration-300 transform z-20
           ${isOpen ? 'opacity-100 translate-x-0' : 'opacity-0 -translate-x-full pointer-events-none'}
-          max-w-xs w-full sm:max-w-sm`}
+          max-w-xs w-full sm:max-w-sm max-h-[70vh] overflow-y-auto`}
       >
         <div className="flex justify-between items-center mb-3">
           <h3 className="text-white text-lg font-bold">Available Abilities</h3>
@@ -91,10 +91,6 @@ const AbilityInfoBubble = ({ playerAbilities }) => {
                     )}
                   </div>
                   <div className="text-xs mt-1 text-gray-300">{ability.description}</div>
-                  <div className="text-xs mt-2 text-gray-400">
-                    <span className="font-semibold">Cooldown:</span> {ability.cooldown} turns
-                    {ability.range && <span> • <span className="font-semibold">Range:</span> {ability.range}</span>}
-                  </div>
                 </div>
               ))}
             </div>

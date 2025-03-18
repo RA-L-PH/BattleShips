@@ -21,8 +21,21 @@ const GameBoard = ({
   
   // Column labels A-H
   const colLabels = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'];
-  // Row labels 1-8
-  const rowLabels = ['1', '2', '3', '4', '5', '6', '7', '8'];
+  // Row labels 8-1 (going from top to bottom in the grid)
+  const rowLabels = ['8', '7', '6', '5', '4', '3', '2', '1'];
+
+  // For consistent grid labeling that matches the requirement:
+  // A-H horizontal left to right at the bottom
+  // 1-8 vertical bottom to top on the left
+  const getDisplayLabel = (index, isCol) => {
+    if (isCol) {
+      // Column labels A-H from left to right
+      return colLabels[index];
+    } else {
+      // Row labels 1-8 from bottom to top (so need to reverse)
+      return rowLabels[index];
+    }
+  };
 
   // Reset last attacked cell after animation completes
   useEffect(() => {
@@ -237,26 +250,11 @@ const GameBoard = ({
     // Add classes to your grid container
     <div className={`grid-container ${jamActive ? 'jam-shield-active' : ''}`}>
       <div className="bg-gray-800 p-3 sm:p-4 md:p-6 rounded-lg shadow-lg transition-all duration-300 hover:shadow-2xl">
-        <div className="flex">
-          {/* Empty corner cell */}
-          <div className="w-6 h-6 sm:w-8 sm:h-8 flex items-center justify-center"></div>
-          
-          {/* Column labels (A-H), or rotated for admin view */}
-          {[0, 1, 2, 3, 4, 5, 6, 7].map((i) => (
-            <div 
-              key={`col-${i}`} 
-              className="w-8 h-6 sm:w-10 sm:h-8 md:w-12 flex items-center justify-center text-gray-300 font-semibold"
-            >
-              {getRotatedLabel(i, true)}
-            </div>
-          ))}
-        </div>
-        
         {normalizedGrid.map((row, y) => (
           <div key={`row-${y}`} className="flex">
-            {/* Row labels (1-8), or rotated for admin view */}
+            {/* Row label */}
             <div className="w-6 h-8 sm:w-8 sm:h-10 md:h-12 flex items-center justify-center text-gray-300 font-semibold">
-              {getRotatedLabel(y, false)}
+              {getDisplayLabel(y, false)}
             </div>
             
             {/* Grid cells */}
@@ -269,6 +267,22 @@ const GameBoard = ({
             </div>
           </div>
         ))}
+        
+        {/* Add column labels (A-H) at the bottom */}
+        <div className="flex mt-1">
+          {/* Empty corner cell */}
+          <div className="w-6 h-6 sm:w-8 sm:h-8 flex items-center justify-center"></div>
+          
+          {/* Column labels (A-H) - always left to right */}
+          {[0, 1, 2, 3, 4, 5, 6, 7].map((i) => (
+            <div 
+              key={`col-${i}`} 
+              className="w-8 h-6 sm:w-10 sm:h-8 md:w-12 flex items-center justify-center text-gray-300 font-semibold"
+            >
+              {getDisplayLabel(i, true)}
+            </div>
+          ))}
+        </div>
         
         {activeAbility && (
           <div className="mt-2 sm:mt-3 text-center text-xs sm:text-sm text-white animate-pulse">

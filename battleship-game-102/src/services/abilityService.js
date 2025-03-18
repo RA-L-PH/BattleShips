@@ -45,12 +45,6 @@ export const ABILITIES = {
     type: 'support',
     difficulty: 'easy',
   },
-  REINFORCEMENT: {
-    name: 'Reinforcement',
-    description: 'Add an extra ship (size 2) to your fleet',
-    type: 'support',
-    difficulty: 'easy',
-  },
   SCANNER: {
     name: 'Scanner',
     description: 'Scan a 2x2 grid area and reveal number of ship parts',

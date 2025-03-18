@@ -130,3 +130,30 @@ export const adminTriggerGodsHand = async (roomId, targetPlayerId, quadrantIndex
     throw error;
   }
 };
+
+// Add this function to your adminService.js file
+
+export const toggleGamePause = async (roomId) => {
+  try {
+    const roomRef = ref(database, `rooms/${roomId}`);
+    const snapshot = await get(roomRef);
+    
+    if (!snapshot.exists()) {
+      throw new Error('Room not found');
+    }
+    
+    const room = snapshot.val();
+    const isPaused = room.isPaused || false;
+    
+    // Toggle pause state
+    await update(roomRef, {
+      isPaused: !isPaused,
+      lastPausedStateChange: Date.now()
+    });
+    
+    return !isPaused; // Return the new pause state
+  } catch (error) {
+    console.error('Error toggling game pause:', error);
+    throw error;
+  }
+};

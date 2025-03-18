@@ -1,4 +1,4 @@
-import { ref, set, get, onValue, update, increment } from 'firebase/database';
+import { ref, set, get, onValue, update, increment, serverTimestamp } from 'firebase/database';
 import { database } from './firebaseConfig';
 // Add this import
 import { checkJamProtection, checkForCounterAttack } from './abilityService';
@@ -534,6 +534,13 @@ export const makeAttack = async (roomId, playerId, targetRow, targetCol) => {
   }
 };
 
+// Add this helper function if it doesn't exist
+const getCoordinateLabel = (col, row) => {
+  const colLabels = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'];
+  const rowLabels = ['8', '7', '6', '5', '4', '3', '2', '1'];
+  return `${colLabels[col]}${rowLabels[row]}`;
+};
+
 // Add this function to your gameService.js file
 
 export const recordTurnTimeout = async (roomId, playerId) => {
@@ -565,5 +572,55 @@ export const recordTurnTimeout = async (roomId, playerId) => {
   } catch (error) {
     console.error('Error recording turn timeout:', error);
     throw error;
+  }
+};
+
+export const performAttack = async (roomId, attackerId, opponentId, targetRow, targetCol) => {
+  try {
+    // Get cell label using the corrected coordinate system
+    // targetRow is 0-7 in the array, but displayed as 8-1 (top to bottom)
+    const cellLabel = getCoordinateLabel(targetCol, targetRow);
+    
+    // Get the room data to check the target cell
+    const roomRef = ref(database, `rooms/${roomId}`);
+    const snapshot = await get(roomRef);
+    const room = snapshot.val();
+
+    // Check if the target cell contains a ship
+    const defenderGrid = room.players[opponentId].PlacementData?.grid;
+    const isHit = Boolean(defenderGrid[targetRow][targetCol].ship);
+    
+    const updates = {};
+    if (isHit) {
+      updates[`/rooms/${roomId}/players/${opponentId}/PlacementData/grid/${targetRow}/${targetCol}/hit`] = true;
+      updates[`/rooms/${roomId}/players/${opponentId}/PlacementData/grid/${targetRow}/${targetCol}/miss`] = false;
+      updates[`/rooms/${roomId}/players/${opponentId}/PlacementData/grid/${targetRow}/${targetCol}/attackLabel`] = cellLabel;
+      // Record attack in history
+      updates[`/rooms/${roomId}/attackHistory/${Date.now()}`] = {
+        attackerId,
+        targetCoord: cellLabel,
+        result: 'HIT',
+        timestamp: serverTimestamp()
+      };
+    } else {
+      updates[`/rooms/${roomId}/players/${opponentId}/PlacementData/grid/${targetRow}/${targetCol}/miss`] = true;
+      updates[`/rooms/${roomId}/players/${opponentId}/PlacementData/grid/${targetRow}/${targetCol}/hit`] = false;
+      updates[`/rooms/${roomId}/players/${opponentId}/PlacementData/grid/${targetRow}/${targetCol}/attackLabel`] = cellLabel;
+      // Record attack in history
+      updates[`/rooms/${roomId}/attackHistory/${Date.now()}`] = {
+        attackerId,
+        targetCoord: cellLabel,
+        result: 'MISS',
+        timestamp: serverTimestamp()
+      };
+    }
+    
+    // Update database
+    await update(ref(database), updates);
+    
+    return { success: true, isHit, cellLabel };
+  } catch (error) {
+    console.error("Error performing attack:", error);
+    return { success: false, error: error.message };
   }
 };

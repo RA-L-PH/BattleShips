@@ -32,6 +32,7 @@ const GameRoom = () => {
   const [gameState, setGameState] = useState(null);
   const [isMyTurn, setIsMyTurn] = useState(false);
   const [toast, setToast] = useState(null);
+  const [isPaused, setIsPaused] = useState(false);
 
   // Create initial empty grid
   const createEmptyGrid = () => Array(8).fill().map(() => 
@@ -45,7 +46,7 @@ const GameRoom = () => {
   // Helper function to convert coordinates to human-readable format
   const getCoordinateLabel = (col, row) => {
     const colLabels = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'];
-    const rowLabels = ['1', '2', '3', '4', '5', '6', '7', '8'];
+    const rowLabels = ['8', '7', '6', '5', '4', '3', '2', '1'];
     return `${colLabels[col]}${rowLabels[row]}`;
   };
 
@@ -190,6 +191,9 @@ const GameRoom = () => {
           });
         }
       }
+      
+      // Add this line to track pause state
+      setIsPaused(data.isPaused || false);
     });
     
     return () => unsubscribe();
@@ -294,13 +298,9 @@ const GameRoom = () => {
   };
 
   const handleAttack = async (x, y, isPlayerGrid = false, cellLabel = '') => {
+    if (isPaused) return; // Block attacks when game is paused
+    
     try {
-      if (!isMyTurn) {
-        setError("It's not your turn!");
-        return;
-      }
-      
-      // Clear previous error
       setError(null);
       
       // Get opponent Id
@@ -456,8 +456,22 @@ const GameRoom = () => {
     <div className="min-h-screen p-4 sm:p-6 md:p-8 bg-gray-900">
       <div className="max-w-7xl mx-auto">
         <div className="flex flex-col items-center gap-4 sm:gap-6 md:gap-8">
-          <Stopwatch gameOver={gameOver} onTimeUp={handleTimeUp} />
-          
+          {/* Create a flex container for Stopwatch and TurnTimer */}
+          <div className="flex flex-row items-center gap-4 w-full justify-center">
+            <Stopwatch 
+              gameOver={gameOver} 
+              onTimeUp={handleTimeUp} 
+              isPaused={isPaused} 
+            />
+            
+            <TurnTimer 
+              isYourTurn={isMyTurn} 
+              onTimeUp={handleTurnTimeout} 
+              gameOver={gameOver}
+              isPaused={isPaused}
+            />
+          </div>
+            
           <GameStatus 
             isYourTurn={isMyTurn}
             gameState={gameState?.status || 'waiting'}
@@ -465,20 +479,8 @@ const GameRoom = () => {
             opponent={{ name: opponentName, shipsRemaining: countRemainingShips(opponentGrid) }}
           />
 
-          <TurnTimer 
-            isYourTurn={isMyTurn} 
-            onTimeUp={handleTurnTimeout} 
-            gameOver={gameOver} 
-          />
-          
-          {gameOver && (
-            <div className={`text-2xl font-bold ${winner === playerId ? 'text-green-500' : winner === 'tie' ? 'text-yellow-500' : 'text-red-500'}`}>
-              {winner === playerId ? 'You Won!' : winner === 'tie' ? "It's a Tie!" : 'You Lost!'}
-            </div>
-          )}
-          
           <div className="flex flex-col justify-center items-center gap-4 md:gap-8">
-            {/* Opponent's board on top */}
+            {/* Only display opponent's board */}
             <div className="flex flex-col items-center w-full">
               <h2 className="text-xl sm:text-2xl font-bold text-white mb-2 sm:mb-4 flex items-center gap-2">
                 <div className={`w-3 h-3 rounded-full ${isMyTurn ? 'bg-green-500 animate-pulse' : 'bg-gray-500'}`}></div>
@@ -487,37 +489,14 @@ const GameRoom = () => {
               <GameBoard 
                 grid={opponentGrid}
                 isPlayerGrid={false}
-                onCellClick={isMyTurn ? handleAttack : null}
-                activeAbility={activeAbility && activeAbility !== 'REINFORCEMENT' ? activeAbility : null}
+                onCellClick={isMyTurn && !isPaused ? handleAttack : null}
+                activeAbility={activeAbility}
                 hackerResult={hackerResult}
                 annihilateVertical={annihilateVertical}
               />
             </div>
             
-            {/* Divider between boards */}
-            <div className="w-full max-w-2xl flex items-center gap-4 my-2 md:my-4">
-              <div className="flex-grow h-1 bg-gray-700 rounded"></div>
-              <div className="text-gray-400 uppercase tracking-wider text-xs font-semibold">Battlefield</div>
-              <div className="flex-grow h-1 bg-gray-700 rounded"></div>
-            </div>
-            
-            {/* Player's board on bottom */}
-            <div className="flex flex-col items-center w-full">
-              <h2 className="text-xl sm:text-2xl font-bold text-white mb-2 sm:mb-4 flex items-center gap-2">
-                <div className="w-3 h-3 rounded-full bg-green-500 animate-pulse"></div>
-                {playerName}'s Fleet
-              </h2>
-              <GameBoard 
-                grid={playerGrid}
-                isPlayerGrid={true}
-                onCellClick={isMyTurn && activeAbility === 'REINFORCEMENT' ? handleAttack : null}
-                activeAbility={activeAbility === 'REINFORCEMENT' ? activeAbility : null}
-                reinforcementVertical={reinforcementVertical}
-                hackerResult={null}
-                annihilateVertical={annihilateVertical}
-                playerData={gameState?.players?.[playerId]}
-              />
-            </div>
+            {/* Player's grid has been removed */}
           </div>
 
           <div className="text-white text-lg sm:text-xl mt-3 sm:mt-4">
@@ -630,6 +609,14 @@ const GameRoom = () => {
         <AbilityIndicator abilities={playerAbilities} />
         <AbilityInfoBubble playerAbilities={playerAbilities} />
       </div>
+      
+      {isPaused && (
+        <div className="fixed inset-0 flex items-center justify-center bg-black/80 z-50">
+          <div className="text-white text-3xl sm:text-4xl md:text-5xl font-bold animate-pulse">
+            GAME PAUSED
+          </div>
+        </div>
+      )}
     </div>
   );
 };
