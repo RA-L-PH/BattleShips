@@ -977,3 +977,57 @@ export const activateReinforcement = executeReinforcement;
 export const activateAnnihilate = executeAnnihilate;
 export const activateCounterAttack = checkForCounterAttack;
 
+// Helper function to randomly select and grant 3 abilities to players (excluding GODS_HAND)
+export const grantRandomAbilities = async (roomId, playerId) => {
+  try {
+    // Get all abilities except GODS_HAND
+    const availableAbilities = Object.keys(ABILITIES).filter(key => 
+      key !== 'GODS_HAND' && ABILITIES[key].difficulty === 'easy'
+    );
+    
+    // Shuffle and select 3 random abilities
+    const shuffled = [...availableAbilities].sort(() => Math.random() - 0.5);
+    const selectedAbilities = shuffled.slice(0, 3);
+    
+    // Grant each selected ability
+    const grantPromises = selectedAbilities.map(abilityKey => 
+      grantAbility(roomId, playerId, abilityKey)
+    );
+    
+    await Promise.all(grantPromises);
+    
+    console.log(`Granted random abilities to player ${playerId}: ${selectedAbilities.join(', ')}`);
+    return selectedAbilities;
+  } catch (error) {
+    console.error('Error granting random abilities:', error);
+    throw error;
+  }
+};
+
+// Helper function to grant random abilities to all players in a room
+export const grantRandomAbilitiesToAllPlayers = async (roomId) => {
+  try {
+    const roomRef = ref(database, `rooms/${roomId}`);
+    const snapshot = await get(roomRef);
+    const room = snapshot.val();
+    
+    if (!room || !room.players) {
+      throw new Error('Room or players not found');
+    }
+    
+    // Grant abilities to each player
+    const playerIds = Object.keys(room.players);
+    const grantPromises = playerIds.map(playerId => 
+      grantRandomAbilities(roomId, playerId)
+    );
+    
+    const results = await Promise.all(grantPromises);
+    
+    console.log(`Granted random abilities to all players in room ${roomId}`);
+    return results;
+  } catch (error) {
+    console.error('Error granting random abilities to all players:', error);
+    throw error;
+  }
+};
+

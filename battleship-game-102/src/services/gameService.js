@@ -224,7 +224,6 @@ export const placeShips = async (roomId, playerId, grid) => {
 
   const roomSnapshot = await get(ref(database, `rooms/${roomId}`));
   const room = roomSnapshot.val();
-
   // For random games, auto-start when both players are ready
   if (room.gameMode === 'random' && Object.values(room.players).every(player => player.ready)) {
     await update(ref(database, `rooms/${roomId}`), {
@@ -233,6 +232,18 @@ export const placeShips = async (roomId, playerId, grid) => {
       turnStartTime: Date.now(),
       currentTurn: Object.keys(room.players)[0]
     });
+
+    // Grant random abilities to all players if abilities are enabled
+    if (room.settings?.abilities !== false) {
+      try {
+        const { grantRandomAbilitiesToAllPlayers } = await import('./abilityService');
+        await grantRandomAbilitiesToAllPlayers(roomId);
+        console.log(`Random abilities granted to all players in room ${roomId}`);
+      } catch (abilityError) {
+        console.error('Error granting random abilities:', abilityError);
+        // Don't fail the game start if ability granting fails
+      }
+    }
   }
 };
 

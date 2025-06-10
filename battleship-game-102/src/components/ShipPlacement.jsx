@@ -384,7 +384,6 @@ const ShipPlacement = ({ onComplete }) => {
     setCatalogQueue([]);
     setSelectedShip(null);
   };
-
   const updateShipPlacement = async (roomId, playerId, placementData) => {
     try {
       const db = getDatabase();
@@ -393,16 +392,20 @@ const ShipPlacement = ({ onComplete }) => {
       const playerSnapshot = await get(playerRef);
 
       if (!playerSnapshot.exists()) {
+        console.error("Player not found in room");
         return false;
       }
 
       const updates = {};
       updates[`rooms/${roomId}/players/${playerId}/PlacementData`] = placementData;
-      updates[`rooms/${roomId}/players/${playerId}/ready`] = true;
+      // Don't set ready=true here - we'll do that explicitly in handleReady
+      // updates[`rooms/${roomId}/players/${playerId}/ready`] = true;
 
       await update(ref(db), updates);
+      console.log("Ship placement data updated successfully");
       return true;
     } catch (error) {
+      console.error("Error updating ship placement:", error);
       return false;
     }
   };
@@ -467,18 +470,23 @@ const ShipPlacement = ({ onComplete }) => {
         setIsSaving(false);
       }
     }
-  };
-  const handleReady = async () => {
+  };  const handleReady = async () => {
+    console.log("handleReady called, isSaved:", isSaved);
+    
     if (isSaved) {
       try {
         const roomId = localStorage.getItem('battleshipRoomId');
         const playerId = localStorage.getItem('battleshipPlayerId');
         const db = getDatabase();
         
+        console.log("Setting player ready status...", { roomId, playerId });
+        
         // Update player ready status
         await update(ref(db, `rooms/${roomId}/players/${playerId}`), {
           ready: true
         });
+
+        console.log("Player ready status updated, checking room state...");
 
         // Check if both players are ready and handle auto-start based on game mode
         const roomRef = ref(db, `rooms/${roomId}`);
@@ -486,16 +494,34 @@ const ShipPlacement = ({ onComplete }) => {
         const room = snapshot.val();
 
         if (!room) {
+          console.error("Room not found!");
           setErrorMessage("Room not found");
           return;
         }
 
+        console.log("Room data:", { 
+          gameMode: room.gameMode, 
+          playerCount: Object.keys(room.players || {}).length,
+          players: Object.keys(room.players || {}),
+          playersReady: Object.values(room.players || {}).map(p => ({ id: p.id, ready: p.ready }))
+        });
+
         const gameMode = room.gameMode || 'admin';
         const players = Object.values(room.players || {});
-        const allPlayersReady = players.length === 2 && players.every(player => player.ready);        if (allPlayersReady) {
+        const allPlayersReady = players.length === 2 && players.every(player => player.ready);
+
+        console.log("Game state check:", { 
+          gameMode, 
+          playerCount: players.length, 
+          allPlayersReady,
+          readyStates: players.map(p => p.ready)
+        });
+
+        if (allPlayersReady) {
           // Auto-start games for random and friendly modes with countdown
           if (gameMode === 'random' || gameMode === 'friendly') {
             try {
+              console.log("Starting auto-start countdown for", gameMode, "game");
               setStatusMessage("Both players ready! Starting game in 3 seconds...");
               
               // Add a short countdown for excitement
@@ -503,29 +529,41 @@ const ShipPlacement = ({ onComplete }) => {
                 setStatusMessage("Game starting in 2...");
                 setTimeout(() => {
                   setStatusMessage("Game starting in 1...");
-                  setTimeout(async () => {                    try {
+                  setTimeout(async () => {
+                    try {
+                      console.log("Importing and calling startGame...");
                       const { startGame } = await import('../services/adminService');
                       await startGame(roomId);
+                      console.log("startGame completed successfully");
                       setStatusMessage("Starting game...");
                     } catch (error) {
+                      console.error("Error starting game:", error);
                       setStatusMessage("Error starting game. Please try again...");
                     }
                   }, 1000);
                 }, 1000);
-              }, 1000);            } catch (error) {
+              }, 1000);
+            } catch (error) {
+              console.error("Error in countdown:", error);
               setStatusMessage("Error starting game. Waiting for manual start...");
             }
           } else {
             // For admin and custom games, wait for manual start
+            console.log("Waiting for manual start for", gameMode, "game");
             setStatusMessage("Both players ready! Waiting for admin to start the game...");
           }
         } else {
           // Waiting for other player
+          console.log("Waiting for other player to be ready");
           setStatusMessage("Waiting for other player to get ready...");
         }
       } catch (error) {
+        console.error("Error in handleReady:", error);
         setErrorMessage(error.message);
       }
+    } else {
+      console.log("Cannot set ready - ships not saved yet");
+      setErrorMessage("Please save your ship placement first");
     }
   };
 

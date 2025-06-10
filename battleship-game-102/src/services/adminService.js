@@ -1,6 +1,6 @@
 import { ref, set, get, update } from 'firebase/database';
 import { database } from './firebaseConfig';
-import { executeGodsHand } from './abilityService';
+import { executeGodsHand, grantRandomAbilitiesToAllPlayers } from './abilityService';
 
 export const createGameAsAdmin = async (roomId, adminId) => {
   try {
@@ -66,6 +66,18 @@ export const startGame = async (roomId) => {
     };
     
     await update(roomRef, updates);
+    
+    // Grant random abilities to all players if abilities are enabled
+    if (room.settings?.abilities !== false) {
+      try {
+        await grantRandomAbilitiesToAllPlayers(roomId);
+        console.log(`Random abilities granted to all players in room ${roomId}`);
+      } catch (abilityError) {
+        console.error('Error granting random abilities:', abilityError);
+        // Don't fail the game start if ability granting fails
+      }
+    }
+    
     return true;
   } catch (error) {
     console.error('Error starting game:', error);
