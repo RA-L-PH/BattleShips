@@ -79,69 +79,71 @@
 
 /* Responsive styles for mobile devices */
 @media screen and (max-width: 640px) {
-  /* Game board optimizations */
+  /* Game board optimizations - increase overall container size */
   .grid-container {
-    max-width: 95vw;
+    max-width: 98vw; /* Increased from 95vw for more space */
+    min-height: 50vh; /* Ensure minimum height for better touch targets */
     margin: 0 auto;
     overflow: visible;
+    padding: 0.5rem; /* Add padding for better spacing */
   }
   
-  /* Force smaller cells on mobile for all grid sizes */
+  /* Increase cell sizes for better haptics - 8x8 and smaller grids */
   .grid-container .w-7,
   .grid-container .sm\:w-9,
   .grid-container .md\:w-11 {
-    width: 1.5rem !important;
+    width: 2.25rem !important; /* Increased from 1.5rem */
   }
   
   .grid-container .h-7,
   .grid-container .sm\:h-9,
   .grid-container .md\:h-11 {
-    height: 1.5rem !important;
+    height: 2.25rem !important; /* Increased from 1.5rem */
   }
   
-  /* Smaller cells for larger grids */
+  /* Medium cells for 10x10 grids */
   .grid-container .w-6,
   .grid-container .sm\:w-8,
   .grid-container .md\:w-10 {
-    width: 1.25rem !important;
+    width: 1.875rem !important; /* Increased from 1.25rem */
   }
   
   .grid-container .h-6,
   .grid-container .sm\:h-8,
   .grid-container .md\:h-10 {
-    height: 1.25rem !important;
+    height: 1.875rem !important; /* Increased from 1.25rem */
   }
   
+  /* Smaller cells for 12x12 and larger grids */
   .grid-container .w-5,
   .grid-container .sm\:w-7,
   .grid-container .md\:w-9 {
-    width: 1rem !important;
+    width: 1.5rem !important; /* Increased from 1rem */
   }
-  
-  .grid-container .h-5,
+    .grid-container .h-5,
   .grid-container .sm\:h-7,
   .grid-container .md\:h-9 {
-    height: 1rem !important;
+    height: 1.5rem !important; /* Increased from 1rem */
   }
   
-  /* Adjust font sizes for mobile */
+  /* Adjust font sizes for mobile - make them proportionally larger */
   .grid-container .text-xl,
   .grid-container .sm\:text-2xl,
   .grid-container .md\:text-3xl {
-    font-size: 0.875rem !important;
+    font-size: 1rem !important; /* Increased from 0.875rem */
   }
   
-  /* Make labels smaller */
+  /* Make labels larger for better visibility */
   .grid-container .w-5,
   .grid-container .sm\:w-6,
   .grid-container .md\:w-8 {
-    width: 1rem !important;
-    font-size: 0.75rem !important;
+    width: 1.5rem !important; /* Increased from 1rem */    font-size: 0.875rem !important; /* Increased from 0.75rem */
   }
-    .grid-container .h-5,
+  
+  .grid-container .h-5,
   .grid-container .sm\:h-6,
   .grid-container .md\:h-8 {
-    height: 1rem !important;
+    height: 1.5rem !important; /* Increased from 1rem */
   }
   
   /* Toast adjustments */
@@ -191,19 +193,43 @@
     background-color: #4a5568;
     border-radius: 3px;
   }
-  
-  /* Make ship cells smaller on tiny screens */
+    /* Make ship cells larger on mobile for better touch */
   .ship-draggable .w-7,
   .ship-draggable .h-7 {
-    width: 1.5rem !important;
-    height: 1.5rem !important;
+    width: 2rem !important; /* Increased from 1.5rem */
+    height: 2rem !important; /* Increased from 1.5rem */
   }
   
-  /* Make grid cells smaller to fit better */
+  /* Make grid cells larger to fit better on mobile */
   .grid-cols-8 .w-8,
   .grid-cols-8 .h-8 {
-    width: 1.75rem !important;
-    height: 1.75rem !important;
+    width: 2.25rem !important; /* Increased from 1.75rem */
+    height: 2.25rem !important; /* Increased from 1.75rem */
+  }
+  
+  /* Ensure grid cells have proper spacing and touch targets */
+  .grid-container .border-2 {
+    border-width: 1px !important; /* Thinner borders on mobile to save space */
+  }
+  
+  /* Improve grid container background and spacing */
+  .grid-container .bg-gray-800 {
+    padding: 1rem !important; /* Increased padding for better spacing */
+    border-radius: 12px !important; /* Slightly larger border radius */
+  }
+  
+  /* Better hit indicators on mobile */
+  .grid-container .text-xl {
+    font-size: 1.25rem !important; /* Larger hit/miss indicators */
+    font-weight: bold !important;
+  }
+  
+  /* Ensure minimum touch targets for all interactive elements */
+  .grid-container button,
+  .grid-container [role="button"],
+  .grid-container .clickable {
+    min-height: 44px !important; /* iOS recommended minimum */
+    min-width: 44px !important;
   }
 }
 
@@ -257,17 +283,18 @@
 }
 
 @media screen and (max-width: 359px) {
-  /* Make cells even smaller on tiny screens */
+  /* Make cells appropriately sized for very small screens */
   .ship-placement-grid .cell,
   .ship-placement-grid .ship-cell {
-    width: 1.25rem !important;
-    height: 1.25rem !important;
+    width: 1.5rem !important; /* Increased from 1.25rem for better touch */
+    height: 1.5rem !important; /* Increased from 1.25rem for better touch */
   }
   
-  /* More compact buttons */
+  /* Keep buttons compact but touchable */
   .ship-placement-controls button {
-    padding: 0.375rem 0.5rem !important;
-    font-size: 0.75rem !important;
+    padding: 0.5rem 0.75rem !important; /* Increased from 0.375rem 0.5rem */
+    font-size: 0.875rem !important; /* Increased from 0.75rem */
+    min-height: 42px; /* Ensure minimum touch target */
   }
 }
 
@@ -311,8 +338,16 @@
 /* Make game board cells responsive with dynamic sizing */
 .grid-container {
   width: 100%;
-  max-width: min(95vw, 480px);
+  max-width: min(98vw, 600px); /* Increased max-width for mobile */
   margin: 0 auto;
+}
+
+/* Mobile-specific larger container */
+@media screen and (max-width: 640px) {
+  .grid-container {
+    max-width: 98vw !important; /* Override for mobile */
+    min-width: 90vw; /* Ensure minimum width */
+  }
 }
 
 /* Top of screen compact status bar */
@@ -323,4 +358,428 @@
   background-color: rgba(26, 32, 44, 0.9);
   -webkit-backdrop-filter: blur(4px);
   backdrop-filter: blur(4px);
+  transition: all 0.3s ease;
+}
+
+/* Enhanced status bar for desktop */
+@media (min-width: 1024px) {
+  .game-status-bar {
+    padding: 1rem 2rem;
+    background-color: rgba(26, 32, 44, 0.95);
+    -webkit-backdrop-filter: blur(8px);
+    backdrop-filter: blur(8px);
+    border-bottom: 1px solid rgba(75, 85, 99, 0.3);
+  }
+  
+  .game-status-bar:hover {
+    background-color: rgba(26, 32, 44, 0.98);
+    border-bottom-color: rgba(75, 85, 99, 0.5);
+  }
+}
+
+/* Landscape orientation specific adjustments */
+@media screen and (max-width: 896px) and (orientation: landscape) {
+  .grid-container {
+    max-width: min(70vw, 500px) !important; /* Adjust for landscape mode */
+    max-height: 80vh !important;
+  }
+}
+
+/* Desktop/Laptop optimizations for larger screens */
+@media screen and (min-width: 768px) {
+  /* Enhanced grid container for tablets and up */
+  .grid-container {
+    max-width: min(85vw, 800px);
+    padding: 1.5rem;
+  }
+  
+  /* Larger cells for better desktop experience */
+  .grid-container .w-7,
+  .grid-container .sm\:w-9,
+  .grid-container .md\:w-11 {
+    width: 3rem !important;
+    height: 3rem !important;
+  }
+  
+  .grid-container .w-6,
+  .grid-container .sm\:w-8,
+  .grid-container .md\:w-10 {
+    width: 2.5rem !important;
+    height: 2.5rem !important;
+  }
+  
+  .grid-container .w-5,
+  .grid-container .sm\:w-7,
+  .grid-container .md\:w-9 {
+    width: 2rem !important;
+    height: 2rem !important;
+  }
+  
+  /* Better typography for desktop */
+  .grid-container .text-xl,
+  .grid-container .sm\:text-2xl,
+  .grid-container .md\:text-3xl {
+    font-size: 1.5rem !important;
+  }
+  
+  /* Enhanced padding and spacing */
+  .grid-container .bg-gray-800 {
+    padding: 2rem !important;
+    border-radius: 16px !important;
+  }
+}
+
+@media screen and (min-width: 1024px) {
+  /* Large desktop optimizations */
+  .grid-container {
+    max-width: min(75vw, 900px);
+    padding: 2rem;
+  }
+  
+  /* Even larger cells for desktop comfort */
+  .grid-container .w-7,
+  .grid-container .sm\:w-9,
+  .grid-container .md\:w-11 {
+    width: 3.5rem !important;
+    height: 3.5rem !important;
+  }
+  
+  .grid-container .w-6,
+  .grid-container .sm\:w-8,
+  .grid-container .md\:w-10 {
+    width: 3rem !important;
+    height: 3rem !important;
+  }
+  
+  .grid-container .w-5,
+  .grid-container .sm\:w-7,
+  .grid-container .md\:w-9 {
+    width: 2.5rem !important;
+    height: 2.5rem !important;
+  }
+  
+  /* Desktop typography */
+  .grid-container .text-xl,
+  .grid-container .sm\:text-2xl,
+  .grid-container .md\:text-3xl {
+    font-size: 1.75rem !important;
+  }
+  
+  /* Row and column labels for desktop */
+  .grid-container .w-5,
+  .grid-container .sm\:w-6,
+  .grid-container .md\:w-8 {
+    width: 2.5rem !important;
+    font-size: 1.125rem !important;
+  }
+  
+  .grid-container .h-5,
+  .grid-container .sm\:h-6,
+  .grid-container .md\:h-8 {
+    height: 2.5rem !important;
+  }
+}
+
+@media screen and (min-width: 1280px) {
+  /* Extra large desktop optimizations */
+  .grid-container {
+    max-width: min(65vw, 1000px);
+    padding: 2.5rem;
+  }
+  
+  /* Maximum comfort cells for large screens */
+  .grid-container .w-7,
+  .grid-container .sm\:w-9,
+  .grid-container .md\:w-11 {
+    width: 4rem !important;
+    height: 4rem !important;
+  }
+  
+  .grid-container .w-6,
+  .grid-container .sm\:w-8,
+  .grid-container .md\:w-10 {
+    width: 3.5rem !important;
+    height: 3.5rem !important;
+  }
+  
+  .grid-container .w-5,
+  .grid-container .sm\:w-7,
+  .grid-container .md\:w-9 {
+    width: 3rem !important;
+    height: 3rem !important;
+  }
+  
+  /* Large screen typography */
+  .grid-container .text-xl,
+  .grid-container .sm\:text-2xl,
+  .grid-container .md\:text-3xl {
+    font-size: 2rem !important;
+  }
+  
+  /* Enhanced labels for large screens */
+  .grid-container .w-5,
+  .grid-container .sm\:w-6,
+  .grid-container .md\:w-8 {
+    width: 3rem !important;
+    font-size: 1.25rem !important;
+  }
+  
+  .grid-container .h-5,
+  .grid-container .sm\:h-6,
+  .grid-container .md\:h-8 {
+    height: 3rem !important;
+  }
+}
+
+/* Desktop layout enhancements */
+@media screen and (min-width: 1024px) {
+  /* Side-by-side game layout for desktop */
+  .game-room-container {
+    display: grid;
+    grid-template-columns: 1fr 300px;
+    gap: 2rem;
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 2rem;
+  }
+  
+  /* Main game area */
+  .game-main-area {
+    display: flex;
+    flex-direction: column;
+    gap: 2rem;
+    align-items: center;
+  }
+  
+  /* Opponent and player grids side by side on large screens */
+  .game-grids-container {
+    display: grid;
+    grid-template-columns: 1fr 0.75fr;
+    gap: 3rem;
+    width: 100%;
+    max-width: 1200px;
+    align-items: start;
+  }
+  
+  /* Enhanced game status bar for desktop */
+  .game-status-bar {
+    padding: 1rem 2rem;
+    font-size: 1.125rem;
+  }
+  
+  /* Better spacing for desktop turn timer */
+  .turn-timer-desktop {
+    position: sticky;
+    top: 100px;
+    margin-bottom: 2rem;
+  }
+}
+
+/* Ship placement enhancements for desktop */
+@media (min-width: 1024px) {
+  .ship-placement-desktop {
+    display: grid;
+    grid-template-columns: 1fr 300px;
+    gap: 3rem;
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 2rem;
+  }
+  
+  .ship-placement-grid-desktop {
+    background: rgba(31, 41, 55, 0.8);
+    padding: 2rem;
+    border-radius: 16px;
+    border: 1px solid rgba(75, 85, 99, 0.3);
+    -webkit-backdrop-filter: blur(8px);
+    backdrop-filter: blur(8px);
+  }
+  
+  .ship-selection-panel-desktop {
+    background: rgba(17, 24, 39, 0.9);
+    padding: 1.5rem;
+    border-radius: 12px;
+    border: 1px solid rgba(75, 85, 99, 0.2);
+    height: fit-content;
+    position: sticky;
+    top: 120px;
+  }
+  
+  /* Enhanced ship cells for desktop placement */
+  .ship-placement-grid-desktop .cell {
+    width: 3rem !important;
+    height: 3rem !important;
+    border-radius: 6px;
+    transition: all 0.2s ease;
+  }
+  
+  .ship-placement-grid-desktop .cell:hover {
+    border-color: rgba(59, 130, 246, 0.6);
+    background-color: rgba(59, 130, 246, 0.1);
+    transform: scale(1.02);
+  }
+  
+  /* Desktop ship dragging */
+  .ship-draggable-desktop {
+    cursor: grab;
+    transition: all 0.3s ease;
+  }
+  
+  .ship-draggable-desktop:hover {
+    transform: scale(1.05);
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+  }
+  
+  .ship-draggable-desktop.dragging {
+    cursor: grabbing;
+    transform: scale(1.1);
+    z-index: 1000;
+    opacity: 0.9;
+  }
+}
+
+/* Enhanced admin controls for desktop */
+@media (min-width: 1024px) {
+  .admin-controls-desktop {
+    display: grid;
+    grid-template-columns: 2fr 1fr;
+    gap: 2rem;
+    max-width: 1600px;
+    margin: 0 auto;
+    padding: 2rem;
+  }
+  
+  .admin-grid-view-desktop {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 2rem;
+    background: rgba(31, 41, 55, 0.5);
+    padding: 2rem;
+    border-radius: 16px;
+    border: 1px solid rgba(75, 85, 99, 0.3);
+  }
+  
+  .admin-controls-panel-desktop {
+    background: rgba(17, 24, 39, 0.9);
+    padding: 1.5rem;
+    border-radius: 12px;
+    height: fit-content;
+    position: sticky;
+    top: 100px;
+  }
+}
+
+/* Utility classes for better component organization */
+
+/* Responsive container classes */
+.container-mobile {
+  @media (max-width: 640px) {
+    padding: 0.5rem;
+    max-width: 100%;
+  }
+}
+
+.container-tablet {
+  @media (min-width: 641px) and (max-width: 1023px) {
+    padding: 1rem;
+    max-width: 90%;
+    margin: 0 auto;
+  }
+}
+
+.container-desktop {
+  @media (min-width: 1024px) {
+    padding: 2rem;
+    max-width: 1200px;
+    margin: 0 auto;
+  }
+}
+
+/* Grid spacing utilities */
+.grid-gap-responsive {
+  gap: 0.5rem;
+}
+
+@media (min-width: 640px) {
+  .grid-gap-responsive {
+    gap: 1rem;
+  }
+}
+
+@media (min-width: 1024px) {
+  .grid-gap-responsive {
+    gap: 2rem;
+  }
+}
+
+/* Typography utilities for game elements */
+.game-text-xs { font-size: 0.75rem; }
+.game-text-sm { font-size: 0.875rem; }
+.game-text-base { font-size: 1rem; }
+.game-text-lg { font-size: 1.125rem; }
+.game-text-xl { font-size: 1.25rem; }
+
+@media (min-width: 640px) {
+  .game-text-xs { font-size: 0.875rem; }
+  .game-text-sm { font-size: 1rem; }
+  .game-text-base { font-size: 1.125rem; }
+  .game-text-lg { font-size: 1.25rem; }
+  .game-text-xl { font-size: 1.5rem; }
+}
+
+@media (min-width: 1024px) {
+  .game-text-xs { font-size: 1rem; }
+  .game-text-sm { font-size: 1.125rem; }
+  .game-text-base { font-size: 1.25rem; }
+  .game-text-lg { font-size: 1.5rem; }
+  .game-text-xl { font-size: 1.75rem; }
+}
+
+/* Enhanced button styles for desktop */
+@media (min-width: 1024px) {
+  .btn-desktop-primary {
+    padding: 0.75rem 2rem;
+    font-size: 1.125rem;
+    font-weight: 600;
+    border-radius: 8px;
+    transition: all 0.2s ease;
+    min-height: 48px;
+  }
+  
+  .btn-desktop-primary:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  }
+  
+  .btn-desktop-secondary {
+    padding: 0.5rem 1.5rem;
+    font-size: 1rem;
+    border-radius: 6px;
+    transition: all 0.2s ease;
+  }
+}
+
+/* Layout utilities for different screen sizes */
+.layout-stack-mobile {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+@media (min-width: 1024px) {
+  .layout-stack-mobile {
+    display: grid;
+    grid-template-columns: 2fr 1fr;
+    gap: 3rem;
+    align-items: start;
+  }
+}
+
+.layout-center-desktop {
+  @media (min-width: 1024px) {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: calc(100vh - 200px);
+  }
 }

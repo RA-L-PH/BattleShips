@@ -298,9 +298,7 @@ const GameRoom = () => {
           player={{ name: playerName, shipsRemaining: countRemainingShips(playerGrid) }}
           opponent={{ name: opponentName, shipsRemaining: countRemainingShips(opponentGrid) }}
         />
-      </div>
-
-      {/* Main game container with proper mobile spacing */}
+      </div>      {/* Main game container with proper mobile spacing */}
       <div className="flex flex-col items-center gap-2 sm:gap-4 p-2 sm:p-4">
         {/* Game info and timer */}
         <div className="flex flex-col sm:flex-row items-center gap-2 sm:gap-4 text-center">
