@@ -77,32 +77,71 @@
   }
 }
 
-/* Responsive styles for small screens (6" diagonal minimum) */
-@media screen and (max-width: 360px) {
-  /* GameBoard cell size adjustments */
+/* Responsive styles for mobile devices */
+@media screen and (max-width: 640px) {
+  /* Game board optimizations */
   .grid-container {
-    max-width: 98vw;
+    max-width: 95vw;
     margin: 0 auto;
+    overflow: visible;
   }
   
-  /* Make cells smaller on tiny screens */
-  .grid-container .w-8,
-  .grid-container .sm\:w-10,
-  .grid-container .md\:w-12 {
-    width: 1.5rem !important; /* Force override */
+  /* Force smaller cells on mobile for all grid sizes */
+  .grid-container .w-7,
+  .grid-container .sm\:w-9,
+  .grid-container .md\:w-11 {
+    width: 1.5rem !important;
   }
   
-  .grid-container .h-8,
-  .grid-container .sm\:h-10,
-  .grid-container .md\:h-12 {
-    height: 1.5rem !important;  /* Force override */
+  .grid-container .h-7,
+  .grid-container .sm\:h-9,
+  .grid-container .md\:h-11 {
+    height: 1.5rem !important;
   }
   
-  /* Make fonts smaller */
+  /* Smaller cells for larger grids */
+  .grid-container .w-6,
+  .grid-container .sm\:w-8,
+  .grid-container .md\:w-10 {
+    width: 1.25rem !important;
+  }
+  
+  .grid-container .h-6,
+  .grid-container .sm\:h-8,
+  .grid-container .md\:h-10 {
+    height: 1.25rem !important;
+  }
+  
+  .grid-container .w-5,
+  .grid-container .sm\:w-7,
+  .grid-container .md\:w-9 {
+    width: 1rem !important;
+  }
+  
+  .grid-container .h-5,
+  .grid-container .sm\:h-7,
+  .grid-container .md\:h-9 {
+    height: 1rem !important;
+  }
+  
+  /* Adjust font sizes for mobile */
   .grid-container .text-xl,
   .grid-container .sm\:text-2xl,
   .grid-container .md\:text-3xl {
     font-size: 0.875rem !important;
+  }
+  
+  /* Make labels smaller */
+  .grid-container .w-5,
+  .grid-container .sm\:w-6,
+  .grid-container .md\:w-8 {
+    width: 1rem !important;
+    font-size: 0.75rem !important;
+  }
+    .grid-container .h-5,
+  .grid-container .sm\:h-6,
+  .grid-container .md\:h-8 {
+    height: 1rem !important;
   }
   
   /* Toast adjustments */
@@ -129,14 +168,13 @@
     padding: 0.25rem 0.5rem !important;
     font-size: 0.75rem !important;
   }
-
   /* Ship placement specific styles */
   .ship-placement-container {
     max-width: calc(100vw - 32px);
     overflow-x: auto;
     overflow-y: auto;
     margin: 0 auto;
-    -webkit-overflow-scrolling: touch; /* Better scrolling on iOS */
+    /* Removed deprecated -webkit-overflow-scrolling: touch */
   }
   
   .ship-placement-container::-webkit-scrollbar {
@@ -215,7 +253,7 @@
   overflow-x: auto;
   overflow-y: auto;
   margin: 0 auto;
-  -webkit-overflow-scrolling: touch; /* Better scrolling on iOS */
+  /* Removed deprecated -webkit-overflow-scrolling: touch */
 }
 
 @media screen and (max-width: 359px) {
@@ -258,10 +296,10 @@
     min-height: 42px;
     min-width: 42px;
   }
-  
-  /* Smoother scrolling */
+    /* Smoother scrolling */
   html, body {
-    -webkit-overflow-scrolling: touch;
+    /* Removed deprecated -webkit-overflow-scrolling: touch */
+    scroll-behavior: smooth;
   }
   
   /* Prevent double-tap zoom on iOS */
@@ -283,5 +321,6 @@
   top: 0;
   z-index: 10;
   background-color: rgba(26, 32, 44, 0.9);
+  -webkit-backdrop-filter: blur(4px);
   backdrop-filter: blur(4px);
 }

@@ -115,9 +115,14 @@ const GameBoard = ({
   const renderCell = (cell = {}, x, y) => {
     let cellContent = null;
     let cellClass = "border-2 border-gray-600 rounded flex items-center justify-center transition-all duration-200 ";
-    
-    // Add responsive sizing
-    cellClass += "w-8 h-8 sm:w-10 sm:h-10 md:w-12 md:h-12 ";
+      // Add responsive sizing with mobile-first approach
+    if (gridSize <= 8) {
+      cellClass += "w-7 h-7 sm:w-9 sm:h-9 md:w-11 md:h-11 ";
+    } else if (gridSize <= 10) {
+      cellClass += "w-6 h-6 sm:w-8 sm:h-8 md:w-10 md:h-10 ";
+    } else {
+      cellClass += "w-5 h-5 sm:w-7 sm:h-7 md:w-9 md:h-9 ";
+    }
 
     // Coordinate label for this cell (for reference only, not displayed to players)
     const cellLabel = `${colLabels[x]}${rowLabels[y]}`;
@@ -251,11 +256,14 @@ const GameBoard = ({
   return (
     // Add classes to your grid container
     <div className={`grid-container ${jamActive ? 'jam-shield-active' : ''}`}>
-      <div className="bg-gray-800 p-3 sm:p-4 md:p-6 rounded-lg shadow-lg transition-all duration-300 hover:shadow-2xl">
-        {normalizedGrid.map((row, y) => (
+      <div className="bg-gray-800 p-3 sm:p-4 md:p-6 rounded-lg shadow-lg transition-all duration-300 hover:shadow-2xl">        {normalizedGrid.map((row, y) => (
           <div key={`row-${y}`} className="flex">
             {/* Row label */}
-            <div className="w-6 h-8 sm:w-8 sm:h-10 md:h-12 flex items-center justify-center text-gray-300 font-semibold">
+            <div className={`flex items-center justify-center text-gray-300 font-semibold
+              ${gridSize <= 8 ? 'w-5 h-7 sm:w-6 sm:h-9 md:w-8 md:h-11 text-xs sm:text-sm' : 
+                gridSize <= 10 ? 'w-4 h-6 sm:w-5 sm:h-8 md:w-6 md:h-10 text-xs' : 
+                'w-3 h-5 sm:w-4 sm:h-7 md:w-5 md:h-9 text-xs'}`}
+            >
               {getDisplayLabel(y, false)}
             </div>
             
@@ -269,17 +277,23 @@ const GameBoard = ({
             </div>
           </div>
         ))}
-        
-        {/* Add column labels (A-H) at the bottom */}
+          {/* Add column labels (A-H) at the bottom */}
         <div className="flex mt-1">
           {/* Empty corner cell */}
-          <div className="w-6 h-6 sm:w-8 sm:h-8 flex items-center justify-center"></div>
+          <div className={`flex items-center justify-center
+            ${gridSize <= 8 ? 'w-5 h-5 sm:w-6 sm:h-6 md:w-8 md:h-8' : 
+              gridSize <= 10 ? 'w-4 h-4 sm:w-5 sm:h-5 md:w-6 md:h-6' : 
+              'w-3 h-3 sm:w-4 sm:h-4 md:w-5 md:h-5'}`}>
+          </div>
           
           {/* Column labels (A-H) - always left to right */}
-          {[0, 1, 2, 3, 4, 5, 6, 7].map((i) => (
+          {Array.from({ length: gridSize }, (_, i) => (
             <div 
               key={`col-${i}`} 
-              className="w-8 h-6 sm:w-10 sm:h-8 md:w-12 flex items-center justify-center text-gray-300 font-semibold"
+              className={`flex items-center justify-center text-gray-300 font-semibold
+                ${gridSize <= 8 ? 'w-7 h-5 sm:w-9 sm:h-6 md:w-11 md:h-8 text-xs sm:text-sm' : 
+                  gridSize <= 10 ? 'w-6 h-4 sm:w-8 sm:h-5 md:w-10 md:h-6 text-xs' : 
+                  'w-5 h-3 sm:w-7 sm:h-4 md:w-9 md:h-5 text-xs'}`}
             >
               {getDisplayLabel(i, true)}
             </div>

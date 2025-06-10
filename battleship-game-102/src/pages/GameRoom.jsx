@@ -282,9 +282,8 @@ const GameRoom = () => {
       </div>
     );
   }
-
   return (
-    <div className="min-h-screen bg-gray-900 text-white overflow-hidden">
+    <div className="min-h-screen bg-gray-900 text-white">
       {toast && (
         <Toast 
           message={toast.message} 
@@ -293,75 +292,87 @@ const GameRoom = () => {
         />
       )}
 
-      <div className="game-status-bar px-4 py-2">
+      {/* Compact status bar */}
+      <div className="game-status-bar px-2 sm:px-4 py-1 sm:py-2">
         <GameStatus 
           player={{ name: playerName, shipsRemaining: countRemainingShips(playerGrid) }}
           opponent={{ name: opponentName, shipsRemaining: countRemainingShips(opponentGrid) }}
         />
       </div>
 
-      <div className="flex flex-col justify-center items-center gap-4 md:gap-8">
+      {/* Main game container with proper mobile spacing */}
+      <div className="flex flex-col items-center gap-2 sm:gap-4 p-2 sm:p-4">
         {/* Game info and timer */}
-        <div className="flex items-center gap-4">
-          <div className="text-sm text-gray-300">
-            Grid: {gridSize}x{gridSize}
+        <div className="flex flex-col sm:flex-row items-center gap-2 sm:gap-4 text-center">
+          <div className="flex items-center gap-2 text-xs sm:text-sm text-gray-300">
+            <span>Grid: {gridSize}x{gridSize}</span>
+            {gameData.gameMode && (
+              <>
+                <span>•</span>
+                <span className="capitalize">Mode: {gameData.gameMode}</span>
+              </>
+            )}
+            {gameData.gameMode === 'friendly' && (
+              <>
+                <span>•</span>
+                <span className="text-blue-400">Code: {roomId}</span>
+              </>
+            )}
           </div>
-          {gameData.gameMode && (
-            <div className="text-sm text-gray-300 capitalize">
-              Mode: {gameData.gameMode}
-            </div>
-          )}
-          {gameData.gameMode === 'friendly' && (
-            <div className="text-sm text-blue-400">
-              Room Code: {roomId}
-            </div>
-          )}
         </div>
 
         {/* Turn Timer */}
         {gameData.turnStartTime && !isPaused && (
-          <TurnTimer 
-            startTime={gameData.turnStartTime}
-            timeLimit={turnTimeLimit}
-            isMyTurn={isMyTurn}
-          />
+          <div className="w-full max-w-md">
+            <TurnTimer 
+              startTime={gameData.turnStartTime}
+              timeLimit={turnTimeLimit}
+              isMyTurn={isMyTurn}
+            />
+          </div>
         )}
 
-        {/* Only display opponent's board */}
+        {/* Opponent's board - main focus */}
         <div className="flex flex-col items-center w-full">
-          <h2 className="text-xl sm:text-2xl font-bold text-white mb-2 sm:mb-4 flex items-center gap-2">
-            <div className={`w-3 h-3 rounded-full ${isMyTurn ? 'bg-green-500 animate-pulse' : 'bg-gray-500'}`}></div>
-            {opponentName}'s Fleet
+          <h2 className="text-base sm:text-xl font-bold text-white mb-1 sm:mb-2 flex items-center gap-2">
+            <div className={`w-2 h-2 sm:w-3 sm:h-3 rounded-full ${isMyTurn ? 'bg-green-500 animate-pulse' : 'bg-gray-500'}`}></div>
+            <span className="truncate max-w-[200px] sm:max-w-none">{opponentName}'s Fleet</span>
           </h2>
-          <GameBoard 
-            grid={opponentGrid}
-            gridSize={gridSize}
-            isPlayerGrid={false}
-            onCellClick={isMyTurn && !isPaused ? handleAttack : null}
-            activeAbility={activeAbility}
-            hackerResult={hackerResult}
-            annihilateVertical={annihilateVertical}
-          />
+          
+          {/* Mobile-optimized game board container */}
+          <div className="w-full flex justify-center">
+            <div className="max-w-[95vw] overflow-auto">
+              <GameBoard 
+                grid={opponentGrid}
+                gridSize={gridSize}
+                isPlayerGrid={false}
+                onCellClick={isMyTurn && !isPaused ? handleAttack : null}
+                activeAbility={activeAbility}
+                hackerResult={hackerResult}
+                annihilateVertical={annihilateVertical}
+              />
+            </div>
+          </div>
         </div>
 
-        {/* Abilities Panel */}
+        {/* Abilities Panel - Mobile optimized */}
         {gameData.settings?.abilities !== false && (
           <AbilityPanel 
             abilities={playerAbilities}
-            onAbilitySelect={setActiveAbility}
+            onUseAbility={setActiveAbility}
             activeAbility={activeAbility}
-            onToggleReinforcement={() => setReinforcementVertical(!reinforcementVertical)}
-            onToggleAnnihilate={() => setAnnihilateVertical(!annihilateVertical)}
+            reinforcementVertical={reinforcementVertical}
+            onToggleReinforcementOrientation={() => setReinforcementVertical(!reinforcementVertical)}
+            annihilateVertical={annihilateVertical}
+            onToggleAnnihilateOrientation={() => setAnnihilateVertical(!annihilateVertical)}
             isMyTurn={isMyTurn}
-            scanResult={scanResult}
-            disabled={isPaused}
           />
         )}
 
-        {/* Player's own grid (smaller, for reference) */}
-        <div className="flex flex-col items-center w-full mt-4">
-          <h3 className="text-lg font-bold text-white mb-2">Your Fleet</h3>
-          <div className="transform scale-75">
+        {/* Player's own grid (compact for mobile) */}
+        <div className="flex flex-col items-center w-full mt-2 sm:mt-4">
+          <h3 className="text-sm sm:text-lg font-bold text-white mb-1 sm:mb-2">Your Fleet</h3>
+          <div className="transform scale-50 sm:scale-75 origin-center">
             <GameBoard 
               grid={playerGrid}
               gridSize={gridSize}
@@ -372,19 +383,21 @@ const GameRoom = () => {
               playerData={gameData.players?.[playerId] || {}}
             />
           </div>
-        </div>        {/* Game controls */}
-        <div className="flex gap-4 mt-4">
+        </div>
+
+        {/* Game controls - Mobile responsive */}
+        <div className="flex flex-col sm:flex-row gap-2 sm:gap-4 mt-2 sm:mt-4 w-full max-w-md">
           {gameData?.gameOver ? (
             <button
               onClick={() => navigate('/')}
-              className="px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 font-semibold"
+              className="w-full px-4 py-2 sm:px-6 sm:py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 font-semibold text-sm sm:text-base"
             >
               Return to Home
             </button>
           ) : (
             <button
               onClick={() => navigate('/')}
-              className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700"
+              className="w-full sm:w-auto px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700 text-sm sm:text-base"
             >
               Leave Game
             </button>
@@ -394,16 +407,17 @@ const GameRoom = () => {
             <button
               onClick={() => {
                 navigator.clipboard.writeText(roomId);
-                setToast({ type: 'success', message: 'Room code copied to clipboard!' });
+                setToast({ type: 'success', message: 'Room code copied!' });
               }}
-              className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+              className="w-full sm:w-auto px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 text-sm sm:text-base"
             >
-              Share Room Code
+              Share Code
             </button>
           )}
         </div>
       </div>
-    </div>  );
+    </div>
+  );
 };
 
 export default GameRoom;
