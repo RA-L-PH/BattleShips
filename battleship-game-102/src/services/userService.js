@@ -9,7 +9,6 @@ import {
   orderBy 
 } from 'firebase/firestore';
 import { db } from '../firebase';
-import bcrypt from 'bcryptjs';
 
 // Input validation helpers
 const validateUsername = (username) => {
@@ -48,12 +47,9 @@ export const createSuperAdmin = async (username, password, displayName) => {
       throw new Error('Username already exists');
     }
 
-    // Hash password
-    const hashedPassword = await bcrypt.hash(password, 10);
-    
     const superAdminRef = await addDoc(collection(db, 'superAdmins'), {
       username: username.toLowerCase(),
-      password: hashedPassword,
+      password: password,
       displayName: displayName.trim(),
       createdAt: Date.now(),
       active: true
@@ -84,9 +80,8 @@ export const authenticateSuperAdmin = async (username, password) => {
     const superAdminDoc = querySnapshot.docs[0];
     const superAdminData = superAdminDoc.data();
     
-    // Compare hashed password
-    const isPasswordValid = await bcrypt.compare(password, superAdminData.password);
-    if (!isPasswordValid) {
+    // Compare password directly
+    if (password !== superAdminData.password) {
       throw new Error('Invalid credentials');
     }
     
@@ -128,12 +123,9 @@ export const createAdmin = async (username, password, displayName, createdBy, pe
       throw new Error('Username already exists');
     }
 
-    // Hash password
-    const hashedPassword = await bcrypt.hash(password, 10);
-    
     const adminRef = await addDoc(collection(db, 'admins'), {
       username: username.toLowerCase(),
-      password: hashedPassword,
+      password: password,
       displayName: displayName.trim(),
       createdBy,
       createdAt: Date.now(),
@@ -175,9 +167,8 @@ export const authenticateAdmin = async (username, password) => {
     const adminDoc = querySnapshot.docs[0];
     const adminData = adminDoc.data();
     
-    // Compare hashed password
-    const isPasswordValid = await bcrypt.compare(password, adminData.password);
-    if (!isPasswordValid) {
+    // Compare password directly
+    if (password !== adminData.password) {
       throw new Error('Invalid credentials');
     }
     
