@@ -1,9 +1,10 @@
-import { ref, set, get, onValue, update, increment, serverTimestamp } from 'firebase/database';
+import { ref, set, get, update, increment, serverTimestamp } from 'firebase/database';
 import { database } from './firebaseConfig';
 // Add this import
 import { checkJamProtection, checkForCounterAttack } from './abilityService';
+import { userService } from './userService';
 
-export const createRoom = async (roomId, adminId) => {
+export const createRoom = async (roomId, adminId, gameMode = 'admin', settings = {}) => {
   try {
     if (!roomId) {
       throw new Error('Invalid roomId');
@@ -18,25 +19,79 @@ export const createRoom = async (roomId, adminId) => {
       throw new Error('Room already exists');
     }
 
-    // Create basic room structure
+    // Default game settings
+    const defaultSettings = {
+      gridSize: 8,
+      shipCount: 'default',
+      abilities: true,
+      turnTimeLimit: 60
+    };
+
+    // Create basic room structure with game mode support
     const room = {
       id: roomId,
       status: 'waiting',
       createdAt: Date.now(),
       playerCount: 0,
       players: {},
-      admin: adminId
+      admin: adminId,
+      gameMode: gameMode, // 'admin', 'random', 'friendly', 'custom'
+      settings: { ...defaultSettings, ...settings },
+      gameStarted: false,
+      turnStartTime: null
     };
 
     // Save room data
     await set(roomRef, room);
-    console.log('Room created:', roomId);
+    console.log('Room created:', roomId, 'Mode:', gameMode);
     return true;
 
   } catch (error) {
     console.error('Error creating room:', error);
     throw error;
   }
+};
+
+// Helper function to get grid size from settings
+export const getGridSize = (settings) => {
+  return settings?.gridSize || 8;
+};
+
+// Helper function to get ship configuration
+export const getShipConfiguration = (settings) => {
+  const gridSize = getGridSize(settings);
+  const shipCount = settings?.shipCount || 'default';
+  
+  let ships = [
+    { id: 'carrier', name: 'Carrier', size: 5, color: 'bg-blue-500' },
+    { id: 'battleship', name: 'Battleship', size: 4, color: 'bg-green-500' },
+    { id: 'cruiser', name: 'Cruiser', size: 3, color: 'bg-yellow-500' },
+    { id: 'destroyer', name: 'Destroyer', size: 2, color: 'bg-red-500' },
+    { id: 'scout', name: 'Scout', size: 2, color: 'bg-violet-500' }
+  ];
+
+  // Adjust ships based on count setting
+  switch (shipCount) {
+    case 'few':
+      ships = ships.slice(0, 3);
+      break;
+    case 'many':
+      ships = [
+        ...ships,
+        { id: 'frigate', name: 'Frigate', size: 2, color: 'bg-orange-500' },
+        { id: 'corvette', name: 'Corvette', size: 1, color: 'bg-pink-500' }
+      ];
+      break;
+    case 'custom':
+      // Custom configuration handled separately
+      break;
+    default:
+      // Keep default ships
+      break;
+  }
+
+  // Filter ships that fit in the grid
+  return ships.filter(ship => ship.size <= gridSize);
 };
 
 // Make sure this is properly implemented in the main attack function
@@ -49,6 +104,9 @@ export const makeMove = async (roomId, playerId, row, col) => {
     if (!room) throw new Error('Room not found');
     if (room.gameOver) throw new Error('Game is already over');
     if (room.currentTurn !== playerId) throw new Error('Not your turn');
+
+    // Get grid size from room settings
+    const gridSize = getGridSize(room.settings);
     
     // Get opponent ID first
     const opponentId = Object.keys(room.players).find(id => id !== playerId);
@@ -83,8 +141,8 @@ export const makeMove = async (roomId, playerId, row, col) => {
     const opponentGrid = room.players[opponentId].PlacementData?.grid;
     if (!opponentGrid) throw new Error('Opponent grid not found');
 
-    // Get the specific cell - validate coordinates are within bounds
-    if (row < 0 || row >= 8 || col < 0 || col >= 8) {
+    // Validate coordinates are within bounds based on grid size
+    if (row < 0 || row >= gridSize || col < 0 || col >= gridSize) {
       throw new Error('Invalid coordinates');
     }
     
@@ -100,30 +158,19 @@ export const makeMove = async (roomId, playerId, row, col) => {
     // Check if there's a ship at this position
     const isHit = Boolean(cell.ship); // Convert to boolean to ensure correct hit detection
 
-    console.log(`Attacking cell:`, cell);
-    console.log(`Is hit: ${isHit}, Ship: ${cell.ship}`);
-    
-    // In the makeMove function, add the cell label
-    const colLabels = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'];
-    const rowLabels = ['1', '2', '3', '4', '5', '6', '7', '8'];
+    // Generate coordinate labels based on grid size
+    const colLabels = Array.from({ length: gridSize }, (_, i) => String.fromCharCode(65 + i));
+    const rowLabels = Array.from({ length: gridSize }, (_, i) => String(gridSize - i));
     const cellLabel = `${colLabels[col]}${rowLabels[row]}`;
 
-    // Create the updates object
     const updates = {};
     
-    // Create attack record with exact coordinates
-    const attackRecord = {
-      row: row + 1,  // Add 1 to make it 1-indexed
-      col: col + 1,  // Add 1 to make it 1-indexed
-      playerId: playerId,
-      isHit: isHit,
-      timestamp: Date.now(),
-      cellLabel: cellLabel
-    };
+    // Set turn start time for timer
+    updates[`/rooms/${roomId}/turnStartTime`] = Date.now();
+    updates[`/rooms/${roomId}/currentTurn`] = opponentId; // Switch turn immediately
     
-    // In the makeMove function, ensure we're setting hit/miss flags correctly
     if (isHit) {
-      // Mark as hit if there's a ship (ensure we set hit to true and miss to false)
+      // Mark as hit if there's a ship
       updates[`/rooms/${roomId}/players/${opponentId}/PlacementData/grid/${row}/${col}/hit`] = true;
       updates[`/rooms/${roomId}/players/${opponentId}/PlacementData/grid/${row}/${col}/miss`] = false;
       updates[`/rooms/${roomId}/players/${opponentId}/PlacementData/grid/${row}/${col}/attackLabel`] = cellLabel;
@@ -136,6 +183,9 @@ export const makeMove = async (roomId, playerId, row, col) => {
         updates[`/rooms/${roomId}/gameOver`] = true;
         updates[`/rooms/${roomId}/winner`] = playerId;
         updates[`/rooms/${roomId}/status`] = 'completed';
+        
+        // Save game history
+        await saveGameHistory(roomId, room);
       }
     } else {
       // Mark as miss if there's no ship (ensure we set miss to true and hit to false)
@@ -143,12 +193,7 @@ export const makeMove = async (roomId, playerId, row, col) => {
       updates[`/rooms/${roomId}/players/${opponentId}/PlacementData/grid/${row}/${col}/miss`] = true;
       updates[`/rooms/${roomId}/players/${opponentId}/PlacementData/grid/${row}/${col}/attackLabel`] = cellLabel;
     }
-    
-    // Update turn and last move with correct coordinates
-    updates[`/rooms/${roomId}/currentTurn`] = opponentId;
-    updates[`/rooms/${roomId}/lastMove`] = attackRecord;
-    updates[`/rooms/${roomId}/moves/${Date.now()}`] = attackRecord; // Store move history
-    
+
     // Update the database
     await update(ref(database), updates);
     
@@ -166,6 +211,7 @@ export const makeMove = async (roomId, playerId, row, col) => {
   }
 };
 
+// Updated ship placement to handle custom settings
 export const placeShips = async (roomId, playerId, grid) => {
   try {
     const updates = {};
@@ -177,10 +223,12 @@ export const placeShips = async (roomId, playerId, grid) => {
     const roomSnapshot = await get(ref(database, `rooms/${roomId}`));
     const room = roomSnapshot.val();
 
-    if (Object.values(room.players).every(player => player.ready)) {
+    // For random games, auto-start when both players are ready
+    if (room.gameMode === 'random' && Object.values(room.players).every(player => player.ready)) {
       await update(ref(database, `rooms/${roomId}`), {
         status: 'playing',
         gameStarted: true,
+        turnStartTime: Date.now(),
         currentTurn: Object.keys(room.players)[0] // Set the first player as the current turn
       });
     }
@@ -190,52 +238,64 @@ export const placeShips = async (roomId, playerId, grid) => {
   }
 };
 
-export const subscribeToRoom = (roomId, callback) => {
-  const roomRef = ref(database, `rooms/${roomId}`);
-  
-  const unsubscribe = onValue(roomRef, (snapshot) => {
-    const data = snapshot.val();
-    if (data) {
-      callback(data);
-    } else {
-      console.error('Room not found or access denied');
+// Function to save game history when game completes
+export const saveGameHistory = async (roomId, roomData) => {  try {
+    const gameHistory = {
+      roomId,
+      gameMode: roomData.gameMode,
+      players: Object.keys(roomData.players).map(playerId => ({
+        id: playerId,
+        name: roomData.players[playerId].name || playerId
+      })),
+      winner: roomData.winner,
+      startTime: roomData.createdAt,
+      endTime: Date.now(),
+      settings: roomData.settings,
+      moves: roomData.moves || {}
+    };
+
+    // Save to Firestore
+    await userService.saveGameHistory(gameHistory);
+    
+    // For admin/custom games, also save room history
+    if (['admin', 'custom'].includes(roomData.gameMode)) {
+      await userService.saveRoomHistory(roomData.admin, {
+        roomId,
+        gameMode: roomData.gameMode,
+        playerCount: Object.keys(roomData.players).length,
+        endTime: Date.now(),
+        winner: roomData.winner
+      });
     }
-  }, (error) => {
-    console.error('Error subscribing to room:', error);
-  });
 
-  return unsubscribe;
-};
+    // After successfully saving to Firestore, clear from Realtime Database
+    // Wait a few seconds to ensure players have seen the game over state
+    setTimeout(async () => {
+      try {
+        const { ref, remove } = await import('firebase/database');
+        const { database } = await import('./firebaseConfig');
+        await remove(ref(database, `rooms/${roomId}`));
+        console.log(`Game ${roomId} cleared from Realtime Database`);
+      } catch (clearError) {
+        console.error('Error clearing game from Realtime Database:', clearError);
+      }
+    }, 10000); // 10 seconds delay
 
-export const leaveRoom = async (roomId, playerId) => {
-  try {
-    const updates = {};
-    updates[`/rooms/${roomId}/players/${playerId}`] = null;
-    updates[`/rooms/${roomId}/playerCount`] = increment(-1);
-    await update(ref(database), updates);
   } catch (error) {
-    console.error('Error leaving room:', error);
-    throw error;
+    console.error('Error saving game history:', error);
   }
 };
 
-export const checkGameOver = (grid) => {
-  let totalShipCells = 0;
-  let totalHitCells = 0;
-
-  grid.forEach(row => {
-    row.forEach(cell => {
-      if (cell.ship) {
-        totalShipCells++;
-        if (cell.hit) {
-          totalHitCells++;
-        }
+// Helper function to check if game is over
+const checkGameOver = (grid) => {
+  for (const row of grid) {
+    for (const cell of row) {
+      if (cell.ship && !cell.hit) {
+        return false; // Found a ship that hasn't been hit
       }
-    });
-  });
-
-  // Game is over only when all ship cells are hit
-  return totalShipCells > 0 && totalShipCells === totalHitCells;
+    }
+  }
+  return true; // All ships have been sunk
 };
 
 // Add new function to update ship placement

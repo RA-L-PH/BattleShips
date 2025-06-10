@@ -969,3 +969,11 @@ export const checkJamProtection = (room, defenderId) => {
   return defenderAbilities.JAM?.installed && !defenderAbilities.JAM?.used;
 };
 
+// Wrapper functions for backward compatibility with GameRoom.jsx imports
+export const activateNuke = executeNuke;
+export const activateScanner = executeScanner;
+export const activateHacker = executeHacker;
+export const activateReinforcement = executeReinforcement;
+export const activateAnnihilate = executeAnnihilate;
+export const activateCounterAttack = checkForCounterAttack;
+

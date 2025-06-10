@@ -9,20 +9,21 @@ const GameBoard = ({
   reinforcementVertical = false,
   annihilateVertical = false,
   hackerResult = null,
-  playerData = {} // Default to empty object to avoid errors
+  playerData = {}, // Default to empty object to avoid errors
+  gridSize = 8 // Support dynamic grid size
 }) => {
-  // Ensure we have an 8x8 grid
-  const normalizedGrid = Array.isArray(grid) && grid.length === 8 ? grid : Array(8).fill().map(() => 
-    Array(8).fill().map(() => ({ ship: null, hit: false, miss: false }))
-  );
+  // Ensure we have a proper grid with dynamic size
+  const normalizedGrid = Array.isArray(grid) && grid.length === gridSize ? grid : 
+    Array(gridSize).fill().map(() => 
+      Array(gridSize).fill().map(() => ({ ship: null, hit: false, miss: false }))
+    );
 
   const [hoverCoords, setHoverCoords] = useState(null);
   const [lastAttackedCell, setLastAttackedCell] = useState(null);
   
-  // Column labels A-H
-  const colLabels = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'];
-  // Row labels 8-1 (going from top to bottom in the grid)
-  const rowLabels = ['8', '7', '6', '5', '4', '3', '2', '1'];
+  // Dynamic labels based on grid size
+  const colLabels = Array.from({ length: gridSize }, (_, i) => String.fromCharCode(65 + i));
+  const rowLabels = Array.from({ length: gridSize }, (_, i) => String(gridSize - i));
 
   // For consistent grid labeling that matches the requirement:
   // A-H horizontal left to right at the bottom
@@ -32,7 +33,7 @@ const GameBoard = ({
       // Column labels A-H from left to right
       return colLabels[index];
     } else {
-      // Row labels 1-8 from bottom to top (so need to reverse)
+      // Row labels from bottom to top
       return rowLabels[index];
     }
   };
@@ -52,7 +53,7 @@ const GameBoard = ({
     if (!reversed) return isCol ? colLabels[index] : rowLabels[index];
     
     // When rotated -90 degrees, swap and adjust indices
-    if (isCol) return rowLabels[7 - index];
+    if (isCol) return rowLabels[gridSize - 1 - index];
     return colLabels[index];
   };
 
@@ -76,18 +77,19 @@ const GameBoard = ({
           return x === hoverCoords.x && 
                  y >= hoverCoords.y && 
                  y < hoverCoords.y + 2 && 
-                 hoverCoords.y + 2 <= 8;
+                 hoverCoords.y + 2 <= gridSize;
         } else {
           return y === hoverCoords.y && 
                  x >= hoverCoords.x && 
                  x < hoverCoords.x + 2 && 
-                 hoverCoords.x + 2 <= 8;
+                 hoverCoords.x + 2 <= gridSize;
         }
       case 'GODS_HAND': {
         // 4x4 quadrant
-        const quadX = Math.floor(hoverCoords.x / 4) * 4;
-        const quadY = Math.floor(hoverCoords.y / 4) * 4;
-        return x >= quadX && x < quadX + 4 && y >= quadY && y < quadY + 4;
+        const quadSize = Math.floor(gridSize / 2);
+        const quadX = Math.floor(hoverCoords.x / quadSize) * quadSize;
+        const quadY = Math.floor(hoverCoords.y / quadSize) * quadSize;
+        return x >= quadX && x < quadX + quadSize && y >= quadY && y < quadY + quadSize;
       }
       case 'ANNIHILATE':
         if (annihilateVertical) {
@@ -95,14 +97,14 @@ const GameBoard = ({
           return x === hoverCoords.x && 
                  y >= hoverCoords.y && 
                  y <= hoverCoords.y + 2 &&
-                 hoverCoords.y + 2 < 8;
+                 hoverCoords.y + 2 < gridSize;
         } else {
           // Horizontal pattern (3 consecutive cells)
           return y === hoverCoords.y && 
                  x >= hoverCoords.x - 1 && 
                  x <= hoverCoords.x + 1 && 
                  hoverCoords.x > 0 && 
-                 hoverCoords.x < 7;
+                 hoverCoords.x < gridSize - 1;
         }
       default:
         // Single cell for other abilities

@@ -1,20 +1,11 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { authenticateAdmin } from '../services/userService';
-import { FaUserSecret, FaLock, FaSignInAlt, FaCrown } from 'react-icons/fa';
+import { authenticateSuperAdmin } from '../services/userService';
+import { FaCrown, FaLock, FaSignInAlt } from 'react-icons/fa';
 import logo from '../assets/logo.png';
 import '../App.css';
 
-// Keep existing hardcoded admins for backward compatibility
-const LEGACY_ADMINS = [
-  { username: 'CaptainBattleship', password: 'AnchorAway2024!', displayName: 'Captain Battleship' },
-  { username: 'AdmiralSinkYou', password: 'TorpedoTango42!', displayName: 'Admiral SinkYou' },
-  { username: 'CommanderSplash', password: 'WaterWarrior99!', displayName: 'Commander Splash' },
-  { username: 'NavyNinja', password: 'SilentSailor77!', displayName: 'Navy Ninja' },
-  { username: 'SeaLordSupreme', password: 'OceanMaster365!', displayName: 'Sea Lord Supreme' }
-];
-
-const AdminLogin = () => {
+const SuperAdminLogin = () => {
   const navigate = useNavigate();
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
@@ -26,44 +17,15 @@ const AdminLogin = () => {
     setError(null);
     
     try {
-      // First try new authentication system
-      try {
-        const admin = await authenticateAdmin(username, password);
-        
-        // Store admin info in localStorage
-        localStorage.setItem('isAdmin', 'true');
-        localStorage.setItem('adminId', admin.id);
-        localStorage.setItem('adminDisplayName', admin.displayName);
-        localStorage.setItem('adminUsername', admin.username);
-        localStorage.setItem('adminPermissions', JSON.stringify(admin.permissions));
-        
-        navigate('/admin');
-        return;      } catch {
-        // If new auth fails, try legacy authentication
-        const legacyAdmin = LEGACY_ADMINS.find(
-          admin => admin.username.toLowerCase() === username.toLowerCase() && 
-                   admin.password === password
-        );
-        
-        if (legacyAdmin) {
-          // Store admin info in localStorage with legacy format
-          localStorage.setItem('isAdmin', 'true');
-          localStorage.setItem('adminId', legacyAdmin.username);
-          localStorage.setItem('adminDisplayName', legacyAdmin.displayName);
-          localStorage.setItem('adminUsername', legacyAdmin.username);
-          localStorage.setItem('adminPermissions', JSON.stringify({
-            hostGames: true,
-            customGames: true,
-            manageGames: true
-          }));
-          
-          navigate('/admin');
-          return;
-        }
-        
-        // If both fail, show error
-        throw new Error('Invalid username or password');
-      }
+      const superAdmin = await authenticateSuperAdmin(username, password);
+      
+      // Store super admin info in localStorage
+      localStorage.setItem('isSuperAdmin', 'true');
+      localStorage.setItem('superAdminId', superAdmin.id);
+      localStorage.setItem('superAdminDisplayName', superAdmin.displayName);
+      localStorage.setItem('superAdminUsername', superAdmin.username);
+      
+      navigate('/super-admin');
     } catch (error) {
       setError(error.message);
     } finally {
@@ -77,7 +39,10 @@ const AdminLogin = () => {
         <div className="flex justify-center mb-6">
           <img src={logo} alt="Battleship Logo" className="h-auto w-auto" />
         </div>
-        <h2 className="text-xl text-gray-400 mb-8 text-center">Admin Portal</h2>
+        <h2 className="text-xl text-yellow-400 mb-8 text-center flex items-center justify-center gap-2">
+          <FaCrown />
+          SuperAdmin Portal
+        </h2>
         
         {error && (
           <div className="bg-red-500 text-white p-3 rounded mb-6 text-center animate-pulse">
@@ -88,11 +53,11 @@ const AdminLogin = () => {
         <div className="space-y-6">
           <div className="relative">
             <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
-              <FaUserSecret className="text-gray-400" />
+              <FaCrown className="text-yellow-400" />
             </div>
             <input
               type="text"
-              placeholder="Admin Username"
+              placeholder="SuperAdmin Username"
               className="w-full py-3 pl-10 pr-4 bg-gray-700 text-white rounded-lg"
               value={username}
               onChange={(e) => setUsername(e.target.value)}
@@ -116,7 +81,7 @@ const AdminLogin = () => {
           <button
             onClick={handleLogin}
             disabled={loading || !username || !password}
-            className="w-full py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 
+            className="w-full py-3 bg-yellow-600 text-white rounded-lg hover:bg-yellow-700 
                      disabled:opacity-50 disabled:cursor-not-allowed
                      flex items-center justify-center gap-2"
           >
@@ -133,11 +98,10 @@ const AdminLogin = () => {
 
         <div className="mt-6 text-center">
           <button
-            onClick={() => navigate('/super-admin-login')}
-            className="text-yellow-400 hover:text-yellow-300 text-sm flex items-center justify-center gap-1"
+            onClick={() => navigate('/admin-login')}
+            className="text-blue-400 hover:text-blue-300 text-sm"
           >
-            <FaCrown />
-            SuperAdmin Login
+            Admin Login Instead
           </button>
         </div>
       </div>
@@ -145,4 +109,4 @@ const AdminLogin = () => {
   );
 };
 
-export default AdminLogin;
+export default SuperAdminLogin;

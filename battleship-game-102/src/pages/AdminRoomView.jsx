@@ -16,6 +16,7 @@ const AdminRoomView = () => {
   const [counterMoves, setCounterMoves] = useState([]);
   const [showGodsHandControls, setShowGodsHandControls] = useState(false);
   const [godsHandTargetPlayer, setGodsHandTargetPlayer] = useState(null);
+  const [pendingSettings, setPendingSettings] = useState({});
   const adminId = localStorage.getItem('adminId');
   const adminDisplayName = localStorage.getItem('adminDisplayName') || 'Admin';
 
@@ -229,6 +230,31 @@ const AdminRoomView = () => {
   const gameStarted = room?.gameStarted || false;
   const gameOver = room?.gameOver || false;
   const countdown = room?.countdown;
+
+  const handleSettingChange = (setting, value) => {
+    setPendingSettings(prev => ({
+      ...prev,
+      [setting]: value
+    }));
+  };
+
+  const handleSaveSettings = async () => {
+    try {
+      const db = getDatabase();
+      const roomRef = ref(db, `rooms/${roomId}`);
+      
+      const updates = {};
+      Object.entries(pendingSettings).forEach(([key, value]) => {
+        updates[`settings/${key}`] = value;
+      });
+      
+      await update(roomRef, updates);
+      setPendingSettings({});
+      setError(null);
+    } catch (err) {
+      setError(`Failed to save settings: ${err.message}`);
+    }
+  };
 
   return (
     <div className="min-h-screen bg-gray-900 p-8">
@@ -717,6 +743,73 @@ const AdminRoomView = () => {
             )}
           </div>
         </div>
+        
+        {/* Game Settings Panel - Only show for custom games or before game starts */}
+        {(roomId.startsWith('CUSTOM_') || !gameStarted) && (
+          <div className="bg-gray-700 p-4 rounded-lg mb-6">
+            <h2 className="text-xl font-bold text-white mb-4">Game Settings</h2>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div>
+                <label className="block text-white font-bold mb-2">Grid Size</label>
+                <select 
+                  value={room.settings?.gridSize || 8}
+                  onChange={(e) => handleSettingChange('gridSize', parseInt(e.target.value))}
+                  disabled={gameStarted}
+                  className="w-full p-2 bg-gray-600 text-white rounded disabled:opacity-50"
+                >
+                  <option value={6}>6x6</option>
+                  <option value={8}>8x8</option>
+                  <option value={10}>10x10</option>
+                  <option value={12}>12x12</option>
+                </select>
+              </div>
+              
+              <div>
+                <label className="block text-white font-bold mb-2">Turn Time Limit</label>
+                <select 
+                  value={room.settings?.turnTimeLimit || 60}
+                  onChange={(e) => handleSettingChange('turnTimeLimit', parseInt(e.target.value))}
+                  disabled={gameStarted}
+                  className="w-full p-2 bg-gray-600 text-white rounded disabled:opacity-50"
+                >
+                  <option value={30}>30 seconds</option>
+                  <option value={60}>1 minute</option>
+                  <option value={120}>2 minutes</option>
+                  <option value={300}>5 minutes</option>
+                  <option value={0}>No limit</option>
+                </select>
+              </div>
+              
+              <div>
+                <label className="block text-white font-bold mb-2">Abilities</label>
+                <div className="flex items-center">
+                  <input
+                    type="checkbox"
+                    checked={room.settings?.abilities !== false}
+                    onChange={(e) => handleSettingChange('abilities', e.target.checked)}
+                    disabled={gameStarted}
+                    className="mr-2 disabled:opacity-50"
+                  />
+                  <span className="text-white">Enable special abilities</span>
+                </div>
+              </div>
+            </div>
+            
+            {roomId.startsWith('CUSTOM_') && !gameStarted && (
+              <div className="mt-4 pt-4 border-t border-gray-600">
+                <button
+                  onClick={handleSaveSettings}
+                  className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 mr-2"
+                >
+                  Save Settings
+                </button>
+                <span className="text-gray-400 text-sm">
+                  Custom game settings will be applied when the game starts
+                </span>
+              </div>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );

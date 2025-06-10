@@ -7,6 +7,7 @@ import { FaTrash, FaCheck, FaShip } from 'react-icons/fa';
 import { BiRotateRight } from 'react-icons/bi';
 import { getDatabase, ref, get, update, onValue } from 'firebase/database';
 import { useNavigate } from 'react-router-dom';
+import { getGridSize, getShipConfiguration } from '../services/gameService';
 
 // Add this utility function in a separate file:
 // filepath: e:\VSCODE\IEEE-battleship102\battleship-game-102\src\utils\deviceDetect.js
@@ -17,16 +18,14 @@ import { useNavigate } from 'react-router-dom';
 // Use a multi-backend setup or conditionally choose the right backend
 const DndBackend = isTouchDevice() ? TouchBackend : HTML5Backend;
 
-const SHIPS = [
+// Default ship configuration - will be overridden by room settings
+const DEFAULT_SHIPS = [
   { id: 'carrier', name: 'Carrier', size: 5, color: 'bg-blue-500' },
   { id: 'battleship', name: 'Battleship', size: 4, color: 'bg-green-500' },
   { id: 'cruiser', name: 'Cruiser', size: 3, color: 'bg-yellow-500' },
   { id: 'destroyer', name: 'Destroyer', size: 2, color: 'bg-red-500' },
   { id: 'scout', name: 'Scout', size: 2, color: 'bg-violet-500' }
 ];
-
-const GRID_SIZE = 8;
-const MAX_SHIPS = 5;
 
 const ShipControls = ({ onRotate, onDelete, disabled }) => (
   <div className="absolute -top-16 left-1/2 transform -translate-x-1/2 
@@ -73,14 +72,19 @@ const Ship = ({ ship, isPlaced, onClick, rotation = 0, position, disabled }) => 
   }), [ship.id, rotation, isPlaced, disabled]);
 
   // Better touch handling
-  const handleTouchStart = (e) => {
+  const handleTouchStart = () => {
     // Don't prevent default so dragging works
+  };
+
+  const handleClick = (e) => {
+    e.stopPropagation();
+    if (onClick) onClick();
   };
 
   return (
     <div
       ref={drag}
-      onClick={onClick}
+      onClick={handleClick}
       onTouchStart={handleTouchStart}
       className={`
         ship-draggable flex flex-row relative
@@ -150,61 +154,142 @@ const Cell = ({ x, y, onDrop, onHover, onClick, isValidPlacement, children }) =>
     e.preventDefault();
   };
 
+  const handleClick = () => {
+    if (onClick) onClick();
+  };
+
   return (
     <div
       ref={drop}
-      onClick={onClick}
+      onClick={handleClick}
       onTouchStart={handleTouchStart}
       className={`
         w-8 h-8 sm:w-10 sm:h-10 md:w-12 md:h-12 border border-gray-600 rounded
-        transition-all duration-200 select-none touch-none
-        ${isOver && isValidPlacement ? 'bg-green-500/50' : ''}
-        ${isOver && !isValidPlacement ? 'bg-red-500/50' : ''}
+        transition-all duration-200 select-none touch-none relative
+        ${isOver && isValidPlacement ? 'bg-green-500/50 border-green-400' : ''}
+        ${isOver && !isValidPlacement ? 'bg-red-500/50 border-red-400' : ''}
         ${!isOver ? 'bg-gray-700 hover:bg-gray-600' : ''}
       `}
+      title={`Cell ${String.fromCharCode(65 + x)}${8 - y}`}
     >
       {children}
+      {/* Grid coordinate labels for debugging */}
+      {!children && (
+        <div className="absolute inset-0 flex items-center justify-center text-xs text-gray-500 opacity-0 hover:opacity-100">
+          {String.fromCharCode(65 + x)}{8 - y}
+        </div>
+      )}
     </div>
   );
 };
+
 const ShipPlacement = ({ onComplete }) => {
   const navigate = useNavigate();
-  const [grid, setGrid] = useState(Array(GRID_SIZE).fill().map(() => Array(GRID_SIZE).fill(null)));
+  
+  // State for dynamic configuration
+  const [GRID_SIZE, setGridSize] = useState(8);
+  const [SHIPS, setShips] = useState(DEFAULT_SHIPS);
+  const [MAX_SHIPS, setMaxShips] = useState(5);
+  
+  // Existing state
+  const [grid, setGrid] = useState([]);
   const [placedShips, setPlacedShips] = useState(new Map());
   const [selectedShip, setSelectedShip] = useState(null);
   const [shipRotations, setShipRotations] = useState(new Map());
   const [hoverCoords, setHoverCoords] = useState(null);
-  const [catalogQueue, setCatalogQueue] = useState([...SHIPS].slice(0, MAX_SHIPS));
+  const [catalogQueue, setCatalogQueue] = useState([]);
   const [isSaving, setIsSaving] = useState(false);
-  const [isSaved, setIsSaved] = useState(false);
-  const [errorMessage, setErrorMessage] = useState('');
+  const [isSaved, setIsSaved] = useState(false);  const [errorMessage, setErrorMessage] = useState('');
   const [statusMessage, setStatusMessage] = useState('');
+  const [placementMode, setPlacementMode] = useState('drag'); // 'drag' or 'click'
 
+  // Initialize grid based on size
+  const createEmptyGrid = useCallback((size) => {
+    return Array(size).fill().map(() => Array(size).fill(null));
+  }, []);
+  // Load room settings and configure game
+  useEffect(() => {
+    const loadRoomSettings = async () => {
+      try {
+        const roomId = localStorage.getItem('battleshipRoomId');
+        if (!roomId) {
+          // Use defaults if no room
+          setGrid(createEmptyGrid(GRID_SIZE));
+          setCatalogQueue([...SHIPS]);
+          return;
+        }
+
+        const db = getDatabase();
+        const roomRef = ref(db, `rooms/${roomId}`);
+        const snapshot = await get(roomRef);
+        const roomData = snapshot.val();
+
+        if (roomData && roomData.settings) {
+          const gridSize = getGridSize(roomData.settings);
+          const ships = getShipConfiguration(roomData.settings);
+          
+          setGridSize(gridSize);
+          setShips(ships);
+          setMaxShips(ships.length);
+          setGrid(createEmptyGrid(gridSize));
+          setCatalogQueue([...ships]);
+          console.log('Room settings loaded - Grid size:', gridSize, 'Ships:', ships.length);
+        } else {
+          // Use defaults if no settings
+          setGrid(createEmptyGrid(GRID_SIZE));
+          setCatalogQueue([...SHIPS]);
+        }
+      } catch (err) {
+        console.error('Error loading room settings:', err);
+        // Use defaults if error
+        setGrid(createEmptyGrid(GRID_SIZE));
+        setCatalogQueue([...SHIPS]);
+      }
+    };
+
+    loadRoomSettings();
+  }, [createEmptyGrid]);
   const checkValidPlacement = useCallback((x, y, ship, vertical) => {
     if (!ship) return false;
+    if (!grid || grid.length === 0) return false;
 
     const size = ship.size;
 
+    // Check bounds
     if (vertical && y + size > GRID_SIZE) return false;
     if (!vertical && x + size > GRID_SIZE) return false;
+    if (x < 0 || y < 0) return false;
 
+    // Check if cells are occupied by other ships
     for (let i = 0; i < size; i++) {
       const checkX = vertical ? x : x + i;
       const checkY = vertical ? y + i : y;
-      const cellContent = grid[checkY][checkX];
+      
+      // Ensure we're within bounds
+      if (checkY >= GRID_SIZE || checkX >= GRID_SIZE) return false;
+      
+      const cellContent = grid[checkY] && grid[checkY][checkX];
+      // Allow placement if cell is empty or contains the same ship we're moving
       if (cellContent && cellContent !== ship.id) return false;
     }
 
+    // Check if we're at max ships (only for new ships)
     if (!placedShips.has(ship.id) && placedShips.size >= MAX_SHIPS) return false;
 
     return true;
-  }, [grid, placedShips]);
-
+  }, [grid, placedShips, GRID_SIZE, MAX_SHIPS]);
   const handleDrop = (x, y, ship, shipIsVertical) => {
-    if (!checkValidPlacement(x, y, ship, shipIsVertical)) return;
+    console.log('Attempting to place ship:', ship.name, 'at', x, y, 'vertical:', shipIsVertical);
+    
+    if (!checkValidPlacement(x, y, ship, shipIsVertical)) {
+      console.log('Invalid placement for ship:', ship.name);
+      return;
+    }
 
+    // Clear previous placement of this ship
     const newGrid = grid.map(row => row.map(cell => cell === ship.id ? null : cell));
 
+    // Place ship in new position
     for (let i = 0; i < ship.size; i++) {
       const placeX = shipIsVertical ? x : x + i;
       const placeY = shipIsVertical ? y + i : y;
@@ -223,11 +308,13 @@ const ShipPlacement = ({ onComplete }) => {
     newRotations.set(ship.id, shipIsVertical ? 90 : 0);
     setShipRotations(newRotations);
 
+    // Remove from catalog if it was there
     if (!placedShips.has(ship.id)) {
       setCatalogQueue(current => current.filter(s => s.id !== ship.id));
     }
 
     setSelectedShip(ship);
+    console.log('Ship placed successfully:', ship.name);
   };
 
   const handleShipSelect = (ship) => {
@@ -249,13 +336,76 @@ const ShipPlacement = ({ onComplete }) => {
   const handleHover = (x, y, ship, shipIsVertical) => {
     setHoverCoords({ x, y, ship, isVertical: shipIsVertical });
   };
-
   const handleClearPlacement = () => {
+    console.log('Clearing all ship placements');
     setGrid(Array(GRID_SIZE).fill().map(() => Array(GRID_SIZE).fill(null)));
     setPlacedShips(new Map());
     setShipRotations(new Map());
     setSelectedShip(null);
     setCatalogQueue([...SHIPS].slice(0, MAX_SHIPS));
+  };
+
+  const handleAutoPlace = () => {
+    console.log('Auto-placing ships');
+    const newGrid = Array(GRID_SIZE).fill().map(() => Array(GRID_SIZE).fill(null));
+    const newPlacedShips = new Map();
+    const newRotations = new Map();
+    
+    // Simple auto-placement logic
+    SHIPS.forEach((ship, index) => {
+      let placed = false;
+      const maxAttempts = 100;
+      let attempts = 0;
+      
+      while (!placed && attempts < maxAttempts) {
+        const x = Math.floor(Math.random() * GRID_SIZE);
+        const y = Math.floor(Math.random() * GRID_SIZE);
+        const vertical = Math.random() < 0.5;
+        
+        // Check if ship fits
+        const fitsHorizontally = !vertical && x + ship.size <= GRID_SIZE;
+        const fitsVertically = vertical && y + ship.size <= GRID_SIZE;
+        
+        if ((fitsHorizontally || fitsVertically) && x >= 0 && y >= 0) {
+          // Check for overlaps
+          let canPlace = true;
+          for (let i = 0; i < ship.size; i++) {
+            const checkX = vertical ? x : x + i;
+            const checkY = vertical ? y + i : y;
+            if (newGrid[checkY][checkX]) {
+              canPlace = false;
+              break;
+            }
+          }
+          
+          if (canPlace) {
+            // Place the ship
+            for (let i = 0; i < ship.size; i++) {
+              const placeX = vertical ? x : x + i;
+              const placeY = vertical ? y + i : y;
+              newGrid[placeY][placeX] = ship.id;
+            }
+            
+            newPlacedShips.set(ship.id, { x, y, vertical });
+            newRotations.set(ship.id, vertical ? 90 : 0);
+            placed = true;
+            console.log(`Auto-placed ${ship.name} at ${x},${y} ${vertical ? 'vertical' : 'horizontal'}`);
+          }
+        }
+        attempts++;
+      }
+      
+      if (!placed) {
+        console.warn(`Could not auto-place ${ship.name} after ${maxAttempts} attempts`);
+      }
+    });
+    
+    setGrid(newGrid);
+    setPlacedShips(newPlacedShips);
+    setShipRotations(newRotations);
+    setCatalogQueue([]);
+    setSelectedShip(null);
+    console.log('Auto-placement complete');
   };
 
   const updateShipPlacement = async (roomId, playerId, placementData) => {
@@ -345,7 +495,6 @@ const ShipPlacement = ({ onComplete }) => {
       }
     }
   };
-
   const handleReady = async () => {
     if (isSaved) {
       try {
@@ -358,13 +507,53 @@ const ShipPlacement = ({ onComplete }) => {
           ready: true
         });
 
-        // Check if both players are ready
+        // Check if both players are ready and handle auto-start based on game mode
         const roomRef = ref(db, `rooms/${roomId}`);
         const snapshot = await get(roomRef);
         const room = snapshot.val();
 
-        // Don't auto-start the game anymore - wait for admin to start it
-        setStatusMessage("Waiting for admin to start the game...");
+        if (!room) {
+          setErrorMessage("Room not found");
+          return;
+        }
+
+        const gameMode = room.gameMode || 'admin';
+        const players = Object.values(room.players || {});
+        const allPlayersReady = players.length === 2 && players.every(player => player.ready);        if (allPlayersReady) {
+          // Auto-start games for random and friendly modes with countdown
+          if (gameMode === 'random' || gameMode === 'friendly') {
+            try {
+              setStatusMessage("Both players ready! Starting game in 3 seconds...");
+              
+              // Add a short countdown for excitement
+              setTimeout(() => {
+                setStatusMessage("Game starting in 2...");
+                setTimeout(() => {
+                  setStatusMessage("Game starting in 1...");
+                  setTimeout(async () => {
+                    try {
+                      const { startGame } = await import('../services/adminService');
+                      await startGame(roomId);
+                      setStatusMessage("Starting game...");
+                    } catch (error) {
+                      console.error('Error auto-starting game:', error);
+                      setStatusMessage("Error starting game. Please try again...");
+                    }
+                  }, 1000);
+                }, 1000);
+              }, 1000);
+            } catch (error) {
+              console.error('Error auto-starting game:', error);
+              setStatusMessage("Error starting game. Waiting for manual start...");
+            }
+          } else {
+            // For admin and custom games, wait for manual start
+            setStatusMessage("Both players ready! Waiting for admin to start the game...");
+          }
+        } else {
+          // Waiting for other player
+          setStatusMessage("Waiting for other player to get ready...");
+        }
       } catch (error) {
         setErrorMessage(error.message);
       }
@@ -393,12 +582,19 @@ const ShipPlacement = ({ onComplete }) => {
 
     setSelectedShip(null);
   };
-
   const handleGridCellClick = (x, y) => {
     const shipId = grid[y][x];
+    
     if (shipId) {
+      // If clicking on a placed ship, select it
       const ship = SHIPS.find(s => s.id === shipId);
       setSelectedShip(ship);
+    } else if (selectedShip && !placedShips.has(selectedShip.id)) {
+      // If clicking on empty cell and have a selected unplaced ship, try to place it
+      const isVertical = (shipRotations.get(selectedShip.id) || 0) === 90;
+      if (checkValidPlacement(x, y, selectedShip, isVertical)) {
+        handleDrop(x, y, selectedShip, isVertical);
+      }
     }
   };
 
@@ -450,7 +646,6 @@ const ShipPlacement = ({ onComplete }) => {
       }
     }
   }, []);
-
   useEffect(() => {
     const roomId = localStorage.getItem('battleshipRoomId');
     const playerId = localStorage.getItem('battleshipPlayerId');
@@ -475,15 +670,18 @@ const ShipPlacement = ({ onComplete }) => {
           setStatusMessage("Both players ready! Waiting for admin to start the game...");
         }
       }
-      
-      // If admin started the game
+        // If admin started the game
       if (room.countdown) {
         setStatusMessage(`Game starting in ${room.countdown}...`);
       }
       
-      // If game started, navigate to the game
+      // If game started, navigate to the game room
       if (room.gameStarted) {
-        navigate(`/game/${roomId}`);
+        console.log('Game started, navigating to room:', roomId);
+        console.log('Current room data:', room);
+        console.log('Stored player ID:', localStorage.getItem('battleshipPlayerId'));
+        console.log('Stored room ID:', localStorage.getItem('battleshipRoomId'));
+        navigate(`/room/${roomId}`);
       }
     });
     
@@ -510,10 +708,11 @@ const ShipPlacement = ({ onComplete }) => {
 
   return (
     <DndProvider backend={DndBackend}>
-      <div className="flex flex-col items-center gap-6 sm:gap-8 p-4 sm:p-8 bg-gray-900/50 rounded-xl select-none touch-none">
-        <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 items-center">
+      <div className="flex flex-col items-center gap-6 sm:gap-8 p-4 sm:p-8 bg-gray-900/50 rounded-xl select-none touch-none">        <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 items-center">
           <h2 className="text-xl sm:text-2xl font-bold text-white">Place Your Ships</h2>
-          <div className="flex gap-2">
+          <div className="text-sm text-gray-300">
+            {placedShips.size}/{SHIPS.length} ships placed
+          </div>          <div className="flex gap-2">
             {selectedShip && (
               <button
                 onClick={handleRotateShip}
@@ -523,28 +722,41 @@ const ShipPlacement = ({ onComplete }) => {
               </button>
             )}
             <button
+              onClick={handleAutoPlace}
+              className="px-3 sm:px-4 py-1 sm:py-2 bg-blue-500 text-white rounded text-sm sm:text-base hover:bg-blue-600"
+            >
+              Auto Place
+            </button>
+            <button
               onClick={handleClearPlacement}
               className="px-3 sm:px-4 py-1 sm:py-2 bg-red-500 text-white rounded text-sm sm:text-base hover:bg-red-600"
             >
               Clear All
             </button>
           </div>
-        </div>
-
-        <div className="flex flex-wrap gap-3 sm:gap-4 mb-4 sm:mb-8 min-h-[72px] sm:min-h-[96px] items-center justify-center w-full">
+        </div>        <div className="flex flex-wrap gap-3 sm:gap-4 mb-4 sm:mb-8 min-h-[72px] sm:min-h-[96px] items-center justify-center w-full">
+          {catalogQueue.length > 0 && (
+            <div className="w-full text-center text-sm text-gray-400 mb-2">
+              Click to select a ship, then drag it to the grid or click on a grid cell to place it
+            </div>
+          )}
           {catalogQueue.map(ship => (
-            <Ship 
-              key={ship.id}
-              ship={ship}
-              isPlaced={false}
-              onClick={() => handleShipSelect(ship)}
-              rotation={0}
-              disabled={placedShips.has(ship.id)}
-            />
+            <div key={ship.id} className="relative">
+              <Ship 
+                ship={ship}
+                isPlaced={false}
+                onClick={() => handleShipSelect(ship)}
+                rotation={0}
+                disabled={placedShips.has(ship.id)}
+              />
+              {selectedShip?.id === ship.id && (
+                <div className="absolute -top-2 -right-2 w-4 h-4 bg-yellow-400 rounded-full animate-pulse"></div>
+              )}
+            </div>
           ))}
           {catalogQueue.length === 0 && (
             <div className="text-gray-400 italic animate-pulse">
-              All ships have been placed
+              All ships have been placed! Click "Confirm Placement" to continue.
             </div>
           )}
         </div>
@@ -557,9 +769,11 @@ const ShipPlacement = ({ onComplete }) => {
               disabled={false}
             />
           )}
-          
-          <div className="overflow-x-auto w-full md:w-auto">
-            <div className="grid grid-cols-8 gap-1 sm:gap-2 bg-gray-800 p-3 sm:p-4 rounded-lg">
+            <div className="overflow-x-auto w-full md:w-auto">
+            <div 
+              className={`grid gap-1 sm:gap-2 bg-gray-800 p-3 sm:p-4 rounded-lg`}
+              style={{ gridTemplateColumns: `repeat(${GRID_SIZE}, minmax(0, 1fr))` }}
+            >
               {grid.map((row, y) => 
                 row.map((cell, x) => (
                   <Cell
@@ -638,16 +852,23 @@ const ShipPlacement = ({ onComplete }) => {
             {errorMessage}
           </div>
         )}
-        
-        {isSaved && (
-          <div class="text-green-500 mt-2 text-center animate-pulse">
+          {isSaved && (
+          <div className="text-green-500 mt-2 text-center animate-pulse">
             Ship placements saved successfully! Click "Ready" to continue.
+          </div>
+        )}        {statusMessage && (
+          <div className="text-blue-500 mt-2 text-center font-bold animate-pulse">
+            {statusMessage}
           </div>
         )}
 
-        {statusMessage && (
-          <div className="text-blue-500 mt-2 text-center font-bold animate-pulse">
-            {statusMessage}
+        {/* Troubleshooting information */}
+        {catalogQueue.length > 0 && placedShips.size === 0 && (
+          <div className="text-yellow-400 text-center text-sm mt-4 bg-yellow-900/20 border border-yellow-600 rounded p-3">
+            <strong>Having trouble placing ships?</strong><br/>
+            • Try the "Auto Place" button for automatic placement<br/>
+            • Or select a ship above, then click on the grid to place it<br/>
+            • You can also drag ships from the list above onto the grid
           </div>
         )}
       </div>

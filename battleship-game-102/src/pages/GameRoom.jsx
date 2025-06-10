@@ -1,54 +1,58 @@
-import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { ref, get, update, onValue, getDatabase } from 'firebase/database';
+import React, { useState, useEffect, useCallback } from 'react';
+import { useParams, useNavigate } from 'react-router-dom';
+import { ref, onValue } from 'firebase/database';
 import { database } from '../services/firebaseConfig';
-import { executeNuke, executeScanner, executeHacker, executeReinforcement, installJam, installCounter, executeGodsHand, executeAnnihilate } from '../services/abilityService';
-import { makeMove } from '../services/gameService';  // Import makeMove from gameService, not abilityService
-import Stopwatch from '../components/StopWatch'; // Note capital 'W'
-import GameStatus from '../components/GameStatus';
 import GameBoard from '../components/GameBoard';
 import AbilityPanel from '../components/AbilityPanel';
+import GameStatus from '../components/GameStatus';
+import StopWatch from '../components/StopWatch';
 import Toast from '../components/Toast';
-import AbilityIndicator from '../components/AbilityIndicator';
 import TurnTimer from '../components/TurnTimer';
-import AbilityInfoBubble from '../components/AbilityInfoBubble';
+import { makeMove } from '../services/gameService';
+import { getGridSize } from '../services/gameService';
+import { 
+  activateNuke, 
+  activateScanner, 
+  activateHacker, 
+  activateReinforcement, 
+  activateAnnihilate,
+  activateCounterAttack
+} from '../services/abilityService';
 
 const GameRoom = () => {
-  const navigate = useNavigate();
-  const roomId = localStorage.getItem('battleshipRoomId');
-  const playerId = localStorage.getItem('battleshipPlayerId');
-  const playerName = localStorage.getItem('battleshipPlayerName') || playerId;
-  const [opponentName, setOpponentName] = useState('Opponent');
-  const [gameOver, setGameOver] = useState(false);
-  const [winner, setWinner] = useState(null);
+  const { roomId } = useParams();
+  const navigate = useNavigate();  const [gameData, setGameData] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [playerId, setPlayerId] = useState(null);
+  const [playerName, setPlayerName] = useState('');
+  const [opponentName, setOpponentName] = useState('');
+  const [isMyTurn, setIsMyTurn] = useState(false);
   const [playerAbilities, setPlayerAbilities] = useState({});
   const [activeAbility, setActiveAbility] = useState(null);
-  const [scanResult, setScanResult] = useState(null);
-  const [hackerResult, setHackerResult] = useState(null);
   const [reinforcementVertical, setReinforcementVertical] = useState(false);
   const [annihilateVertical, setAnnihilateVertical] = useState(false);
-  const [error, setError] = useState(null);
-  const [counterResult, setCounterResult] = useState(null);
-  const [gameState, setGameState] = useState(null);
-  const [isMyTurn, setIsMyTurn] = useState(false);
+  const [scanResult, setScanResult] = useState(null);
+  const [hackerResult, setHackerResult] = useState(null);
   const [toast, setToast] = useState(null);
   const [isPaused, setIsPaused] = useState(false);
+  const [gridSize, setGridSize] = useState(8);
+  const [turnTimeLimit, setTurnTimeLimit] = useState(60);
 
-  // Create initial empty grid
-  const createEmptyGrid = () => Array(8).fill().map(() => 
-    Array(8).fill().map(() => ({ ship: null, hit: false, miss: false }))
-  );
+  // Create initial empty grid based on dynamic size
+  const createEmptyGrid = useCallback((size = 8) => Array(size).fill().map(() => 
+    Array(size).fill().map(() => ({ ship: null, hit: false, miss: false }))
+  ), []);
 
   // Initialize grids with empty state
-  const [playerGrid, setPlayerGrid] = useState(createEmptyGrid());
-  const [opponentGrid, setOpponentGrid] = useState(createEmptyGrid());
+  const [playerGrid, setPlayerGrid] = useState(() => createEmptyGrid(8));
+  const [opponentGrid, setOpponentGrid] = useState(() => createEmptyGrid(8));
   
   // Helper function to convert coordinates to human-readable format
-  const getCoordinateLabel = (col, row) => {
-    const colLabels = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'];
-    const rowLabels = ['8', '7', '6', '5', '4', '3', '2', '1'];
+  const getCoordinateLabel = useCallback((col, row) => {
+    const colLabels = Array.from({ length: gridSize }, (_, i) => String.fromCharCode(65 + i));
+    const rowLabels = Array.from({ length: gridSize }, (_, i) => String(gridSize - i));
     return `${colLabels[col]}${rowLabels[row]}`;
-  };
+  }, [gridSize]);
 
   // Function to count remaining ships in a grid
   const countRemainingShips = (grid) => {
@@ -57,9 +61,8 @@ const GameRoom = () => {
     // Track all ships and their segments
     const shipSegmentCounts = {};
     const shipHitCounts = {};
-    
-    grid.forEach((row, rowIndex) => {
-      row.forEach((cell, colIndex) => {
+      grid.forEach((row) => {
+      row.forEach((cell) => {
         if (cell.ship) {
           const shipId = cell.ship;
           // Count total segments per ship
@@ -79,43 +82,84 @@ const GameRoom = () => {
       // A ship is remaining if not all its segments are hit
       if (!shipHitCounts[shipId] || shipHitCounts[shipId] < shipSegmentCounts[shipId]) {
         remainingShips++;
-      }
-    });
+      }    });
     
     return remainingShips;
   };
 
-  // Subscribe to room updates
+  // Initialize player ID from localStorage first
+  useEffect(() => {
+    const storedPlayerId = localStorage.getItem('battleshipPlayerId');
+    const storedRoomId = localStorage.getItem('battleshipRoomId');
+    
+    console.log('GameRoom useEffect - storedPlayerId:', storedPlayerId);
+    console.log('GameRoom useEffect - storedRoomId:', storedRoomId);
+    console.log('GameRoom useEffect - roomId from params:', roomId);
+    
+    if (storedPlayerId) {
+      setPlayerId(storedPlayerId);
+    } else {
+      console.error('No stored player ID found, redirecting to home');
+      navigate('/');
+    }
+  }, [navigate, roomId]);
+
+  // Subscribe to room updates (only after playerId is set)
   useEffect(() => {
     if (!roomId || !playerId) {
-      navigate('/');
-      return;
+      return; // Don't navigate here, let the first effect handle it
     }
     
     const roomRef = ref(database, `rooms/${roomId}`);
     console.log("Setting up room subscription for roomId:", roomId);
+    let hasReceivedData = false;
+    let timeoutId = null;
     
     const unsubscribe = onValue(roomRef, (snapshot) => {
       const data = snapshot.val();
       
       if (!data) {
-        console.error("No data received from room subscription");
-        navigate('/');
+        // Only redirect if we've been waiting for more than 5 seconds and never received data
+        if (!hasReceivedData && !timeoutId) {
+          timeoutId = setTimeout(() => {
+            if (!hasReceivedData) {
+              console.error("Room not found after 5 second timeout, redirecting to home");
+              navigate('/');
+            }
+          }, 5000); // Wait 5 seconds before giving up
+        }
         return;
       }
-
-      setGameState(data);
       
-      // Check for game over
-      if (data.gameOver) {
-        setGameOver(true);
-        setWinner(data.winner);
+      // Clear timeout if we received data
+      if (timeoutId) {
+        clearTimeout(timeoutId);
+        timeoutId = null;
       }
       
-      // Update turn status
-      setIsMyTurn(data.currentTurn === playerId);
+      hasReceivedData = true;
+      setLoading(false);
+      console.log("Room data received:", data);
+      setGameData(data);
       
-      // Get player's grid
+      // Update grid size from room settings
+      const roomGridSize = getGridSize(data.settings);
+      if (roomGridSize !== gridSize) {
+        setGridSize(roomGridSize);
+        setPlayerGrid(createEmptyGrid(roomGridSize));
+        setOpponentGrid(createEmptyGrid(roomGridSize));
+      }
+      
+      // Update turn time limit
+      if (data.settings?.turnTimeLimit) {
+        setTurnTimeLimit(data.settings.turnTimeLimit);
+      }
+
+      // Set turn status
+      setIsMyTurn(data.currentTurn === playerId);
+      setIsPaused(data.isPaused || false);
+
+      // Get player's own grid
       if (data.players && data.players[playerId]?.PlacementData?.grid) {
         console.log("Updating player grid");
         setPlayerGrid(JSON.parse(JSON.stringify(data.players[playerId].PlacementData.grid)));
@@ -128,13 +172,11 @@ const GameRoom = () => {
         const opponentGridData = JSON.parse(JSON.stringify(data.players[opponentId].PlacementData.grid));
         
         // Create a fresh grid to ensure we only copy specific properties
-        const processedGrid = Array(8).fill().map(() => 
-          Array(8).fill().map(() => ({ ship: null, hit: false, miss: false }))
-        );
+        const processedGrid = createEmptyGrid(roomGridSize);
         
         // Copy only hit/miss data from the original grid
-        for (let y = 0; y < 8; y++) {
-          for (let x = 0; x < 8; x++) {
+        for (let y = 0; y < roomGridSize; y++) {
+          for (let x = 0; x < roomGridSize; x++) {
             if (opponentGridData[y] && opponentGridData[y][x]) {
               const cell = opponentGridData[y][x];
               processedGrid[y][x] = {
@@ -165,460 +207,226 @@ const GameRoom = () => {
       // Get hacker results if any
       if (data.players && data.players[playerId]?.hackerReveal) {
         setHackerResult(data.players[playerId].hackerReveal);
+      }      // Check for game over
+      if (data.gameOver) {
+        const winner = data.winner;
+        const message = winner === playerId ? "🎉 You Won!" : "💀 You Lost!";
+        setToast({ type: winner === playerId ? 'success' : 'error', message });
+          // Don't auto-navigate anymore - let players see the results
+        // They can manually navigate back to home when ready
       }
-      
-      // Get counter results if any
-      if (data.players && data.players[playerId]?.counterHitResult) {
-        const counterData = data.players[playerId].counterHitResult;
-        if (counterData && counterData.timestamp) {
-          setCounterResult({
-            hit: true,
-            hits: counterData.hits || [],
-            row: counterData.targetRow,
-            col: counterData.targetCol,
-            timestamp: counterData.timestamp
-          });
-        }
-      } else if (data.players && data.players[playerId]?.counterHitByOpponent) {
-        const counterData = data.players[playerId].counterHitByOpponent;
-        if (counterData && counterData.timestamp) {
-          setCounterResult({
-            hit: false,
-            hits: counterData.hits || [],
-            row: counterData.targetRow,
-            col: counterData.targetCol,
-            timestamp: counterData.timestamp
-          });
-        }
-      }
-      
-      // Add this line to track pause state
-      setIsPaused(data.isPaused || false);
+
+      // Get player name from local storage
+      setPlayerName(localStorage.getItem('battleshipPlayerName') || 'Player');
     });
-    
+
     return () => unsubscribe();
-  }, [roomId, playerId, navigate]);
+  }, [roomId, playerId, navigate, gridSize, createEmptyGrid]);
 
-  // Clear counter result after a delay
-  useEffect(() => {
-    if (counterResult) {
-      const timer = setTimeout(() => {
-        setCounterResult(null);
-      }, 5000); // Display for 5 seconds
-      return () => clearTimeout(timer);
-    }
-  }, [counterResult]);
-
-  const handleAbilitySelect = (abilityKey) => {
-    setActiveAbility(abilityKey);
-    setError(null); // Clear any previous errors when selecting a new ability
-  };
-
-  const showAbilityFeedback = (ability, result) => {
-    let message;
-    let type = 'success';
-    
-    switch(ability) {
-      case 'NUKE':
-        message = `NUKE strike at ${getCoordinateLabel(result.targetCol, result.targetRow)}! 
-                  Hit ${result.hitCount || 0} ship segments in X pattern.${
-                  result.hitCount > 0 && result.hitPositions ? 
-                  ` Hit positions: ${result.hitPositions.map(pos => 
-                    getCoordinateLabel(pos.col, pos.row)).join(', ')}` : ''}`;
-        break;
-      case 'SCANNER':
-        if (result.area) {
-          message = `SCANNER detected ${result.shipCount} ship segments in area from 
-                    ${getCoordinateLabel(result.area.col, result.area.row)} to 
-                    ${getCoordinateLabel(result.area.col + 1, result.area.row + 1)}.`;
-        } else {
-          message = `SCANNER detected ${result.shipCount} ship segments around 
-                    ${getCoordinateLabel(result.targetCol, result.targetRow)}.`;
-        }
-        break;
-      case 'HACKER':
-        message = `HACKER revealed enemy ship segment at 
-                  ${getCoordinateLabel(result.revealedCol, result.revealedRow)}!`;
-        break;
-      case 'REINFORCEMENT':
-        message = `REINFORCEMENT ship deployed at 
-                  ${getCoordinateLabel(result.targetCol, result.targetRow)} 
-                  (${result.isVertical ? 'vertical' : 'horizontal'})!`;
-        break;
-      case 'JAM':
-        message = 'JAM defense activated! Next enemy attack will be blocked.';
-        break;
-      case 'COUNTER':
-        message = 'COUNTER defense ready! You will automatically strike back if hit.';
-        break;
-      case 'ANNIHILATE':
-        message = `ANNIHILATE attack at ${getCoordinateLabel(result.targetCol, result.targetRow)}! 
-                  Hit ${result.hitCount || 0} ship segments 
-                  ${result.isVertical ? 'vertically' : 'horizontally'}.
-                  ${result.hitCells?.length > 0 ? `Hit positions: ${result.hitCells.map(cell => 
-                    getCoordinateLabel(cell.col, cell.row)).join(', ')}` : ''}`;
-        break;
-      case 'GODS_HAND':
-        message = `GOD'S HAND decimated quadrant ${result.quadrant + 1}! 
-                  Destroyed ${result.hitCount || 0} ship segments.
-                  ${result.hitShips?.length > 0 ? `Hit positions: ${result.hitShips.map(ship => 
-                    getCoordinateLabel(ship.col, ship.row)).join(', ')}` : ''}`;
-        break;
-      default:
-        message = 'Ability used successfully!';
-    }
-    
-    setToast({ message, type });
-  };
-
-  const showAttackResult = (result) => {
-    // Get the coordinates, supporting both naming conventions and handle undefined cases
-    const col = result.targetCol !== undefined ? result.targetCol : 
-                result.col !== undefined ? result.col : 0;
-    const row = result.targetRow !== undefined ? result.targetRow : 
-                result.row !== undefined ? result.row : 0;
-    
-    const coordLabel = getCoordinateLabel(col, row);
-    
-    if (result.isHit) {
-      setToast({
-        message: result.shipDestroyed 
-          ? `Direct hit! Enemy ship completely destroyed at ${coordLabel}!` 
-          : `Hit! You struck an enemy ship segment at ${coordLabel}!`,
-        type: 'success',
-        duration: 3000
-      });
-    } else {
-      setToast({
-        message: `Miss! Your attack at ${coordLabel} didn't hit any ships.`,
-        type: 'info',
-        duration: 2000
-      });
+  const handleAbilityActivation = async (x, y, ability) => {
+    try {
+      switch (ability) {        case 'NUKE':
+          await activateNuke(roomId, playerId, y, x);
+          break;
+        case 'SCANNER':
+          await activateScanner(roomId, playerId, y, x);
+          break;
+        case 'HACKER':
+          await activateHacker(roomId, playerId);
+          break;
+        case 'REINFORCEMENT':
+          await activateReinforcement(roomId, playerId, y, x, reinforcementVertical);
+          break;
+        case 'ANNIHILATE':
+          await activateAnnihilate(roomId, playerId, y, x, annihilateVertical);
+          break;
+        case 'COUNTER':
+          await activateCounterAttack(roomId, playerId);
+          break;
+        default:
+          throw new Error('Invalid ability');
+      }
+      
+      setToast({ type: 'success', message: `Ability ${ability} activated!` });
+    } catch (error) {
+      console.error('Ability activation error:', error);
+      setToast({ type: 'error', message: error.message });
+    } finally {
+      setActiveAbility(null);
     }
   };
 
-  const handleAttack = async (x, y, isPlayerGrid = false, cellLabel = '') => {
-    if (isPaused) return; // Block attacks when game is paused
+  const handleAttack = async (x, y) => {
+    if (!isMyTurn || isPaused) return;
     
     try {
-      setError(null);
-      
-      // Get opponent Id
-      const opponentId = Object.keys(gameState.players).find(id => id !== playerId);
-      if (!opponentId) {
-        setError("Opponent not found!");
-        return;
-      }
-      
-      // If an ability is active
       if (activeAbility) {
-        try {
-          let result;
-          switch (activeAbility) {
-            case 'NUKE':
-              result = await executeNuke(roomId, playerId, y, x);
-              break;
-            case 'SCANNER':
-              result = await executeScanner(roomId, playerId, y, x);
-              break;
-            case 'HACKER':
-              result = await executeHacker(roomId, playerId);
-              break;
-            case 'REINFORCEMENT': {
-              // This is for placing on own grid
-              if (isPlayerGrid) {
-                result = await executeReinforcement(roomId, playerId, y, x, reinforcementVertical);
-              } else {
-                setError("Reinforcement must be placed on your own grid");
-                return;
-              }
-              break;
-            }
-            case 'JAM':
-              result = await installJam(roomId, playerId);
-              break;
-            case 'COUNTER':
-              result = await installCounter(roomId, playerId);
-              break;
-            case 'GODS_HAND': {
-              // Disable player-triggered God's Hand
-              setError("God's Hand ability can only be used by the admin");
-              return;
-            }
-            case 'ANNIHILATE':
-              result = await executeAnnihilate(roomId, playerId, y, x, annihilateVertical);
-              break;
-            default:
-              // Regular attack with no ability
-              result = await makeMove(roomId, playerId, y, x);
-          }
-          // Clear ability state after successful execution
-          setActiveAbility(null);
-          showAbilityFeedback(activeAbility, result);
-        } catch (error) {
-          console.error('Ability execution error:', error);
-          setToast({ message: error.message, type: 'error' });
-          
-          // Clear ability state if it was blocked by JAM
-          if (error.message.includes('jammed') || error.message.includes('JAM')) {
-            setActiveAbility(null);
-            
-            // Also explicitly clear any active ability state in the database
-            try {
-              update(ref(database, `rooms/${roomId}/players/${playerId}`), {
-                activeAbilityState: null
-              });
-            } catch (dbError) {
-              console.error("Error clearing ability state:", dbError);
-            }
-          }
-          // Don't clear ability state on other errors so user can try again
-          return;
-        }
+        await handleAbilityActivation(x, y, activeAbility);
       } else {
-        // Regular attack with no ability
-        try {
-          const result = await makeMove(roomId, playerId, y, x);
-          showAttackResult(result);
-        } catch (error) {
-          console.error('Attack error:', error);
-          setToast({ message: error.message, type: 'error' });
-        }
+        await makeMove(roomId, playerId, y, x);
+        setToast({ type: 'info', message: `Attacked ${getCoordinateLabel(x, y)}` });
       }
     } catch (error) {
-      console.error('Attack error:', error);
-      setToast({ message: error.message, type: 'error' });
+      console.error('Attack failed:', error);
+      setToast({ type: 'error', message: error.message });
     }
   };
 
-  const handleTimeUp = async () => {
-    // Compare remaining ships
-    const playerShips = countRemainingShips(playerGrid);
-    const opponentShips = countRemainingShips(opponentGrid);
-    
-    let gameWinner;
-    if (playerShips > opponentShips) {
-      gameWinner = playerId;
-    } else if (opponentShips > playerShips) {
-      gameWinner = Object.keys(gameState.players).find(id => id !== playerId);
-    } else {
-      gameWinner = 'tie';
+  // Clear toast message after 3 seconds
+  useEffect(() => {
+    if (toast) {
+      const timer = setTimeout(() => {
+        setToast(null);
+      }, 3000);
+      return () => clearTimeout(timer);
     }
+  }, [toast]);
 
-    setGameOver(true);
-    setWinner(gameWinner);
+  if (!gameData) {
+    return (
+      <div className="min-h-screen bg-gray-900 flex items-center justify-center">
+        <div className="text-white text-xl">Loading game...</div>
+      </div>
+    );
+  }
 
-    // Update game state in database
-    try {
-      await update(ref(database, `rooms/${roomId}`), {
-        status: 'completed',
-        winner: gameWinner,
-        gameOver: true
-      });
-    } catch (err) {
-      console.error("Error updating game state:", err);
-    }
-  };
+  if (loading || !gameData) {
+    return (
+      <div className="min-h-screen bg-gray-900 flex items-center justify-center">
+        <div className="text-white text-xl">Loading game room...</div>
+      </div>
+    );
+  }
 
-  const handleTurnTimeout = async () => {
-    // Only proceed if it's still the player's turn
-    if (isMyTurn && !gameOver) {
-      try {
-        setToast({
-          message: "Turn time expired! Switching to opponent's turn.",
-          type: 'warning',
-          duration: 3000
-        });
-        
-        // Get opponent Id
-        const opponentId = Object.keys(gameState.players).find(id => id !== playerId);
-        
-        // Switch turn to opponent
-        await update(ref(database, `rooms/${roomId}`), {
-          currentTurn: opponentId,
-          lastAction: {
-            type: 'timeout',
-            playerId: playerId,
-            timestamp: Date.now()
-          }
-        });
-      } catch (error) {
-        console.error("Error handling turn timeout:", error);
-      }
-    }
-  };
-
-  const countdown = gameState?.countdown;
-
-  if (!gameState) return <div className="min-h-screen flex items-center justify-center bg-gray-900 text-white text-xl">Loading...</div>;
+  if (!gameData.gameStarted) {
+    return (
+      <div className="min-h-screen bg-gray-900 flex items-center justify-center">
+        <div className="text-white text-xl">Waiting for game to start...</div>
+      </div>
+    );
+  }
 
   return (
-    <div className="min-h-screen p-4 sm:p-6 md:p-8 bg-gray-900">
-      <div className="max-w-7xl mx-auto">
-        <div className="flex flex-col items-center gap-4 sm:gap-6 md:gap-8">
-          {/* Create a flex container for Stopwatch and TurnTimer */}
-          <div className="flex flex-row items-center gap-4 w-full justify-center">
-            <Stopwatch 
-              gameOver={gameOver} 
-              onTimeUp={handleTimeUp} 
-              isPaused={isPaused} 
-            />
-            
-            <TurnTimer 
-              isYourTurn={isMyTurn} 
-              onTimeUp={handleTurnTimeout} 
-              gameOver={gameOver}
-              isPaused={isPaused}
-            />
-          </div>
-            
-          <GameStatus 
-            isYourTurn={isMyTurn}
-            gameState={gameState?.status || 'waiting'}
-            player={{ name: playerName, shipsRemaining: countRemainingShips(playerGrid) }}
-            opponent={{ name: opponentName, shipsRemaining: countRemainingShips(opponentGrid) }}
-          />
+    <div className="min-h-screen bg-gray-900 text-white overflow-hidden">
+      {toast && (
+        <Toast 
+          message={toast.message} 
+          type={toast.type} 
+          onClose={() => setToast(null)} 
+        />
+      )}
 
-          <div className="flex flex-col justify-center items-center gap-4 md:gap-8">
-            {/* Only display opponent's board */}
-            <div className="flex flex-col items-center w-full">
-              <h2 className="text-xl sm:text-2xl font-bold text-white mb-2 sm:mb-4 flex items-center gap-2">
-                <div className={`w-3 h-3 rounded-full ${isMyTurn ? 'bg-green-500 animate-pulse' : 'bg-gray-500'}`}></div>
-                {opponentName}'s Fleet
-              </h2>
-              <GameBoard 
-                grid={opponentGrid}
-                isPlayerGrid={false}
-                onCellClick={isMyTurn && !isPaused ? handleAttack : null}
-                activeAbility={activeAbility}
-                hackerResult={hackerResult}
-                annihilateVertical={annihilateVertical}
-              />
+      <div className="game-status-bar px-4 py-2">
+        <GameStatus 
+          player={{ name: playerName, shipsRemaining: countRemainingShips(playerGrid) }}
+          opponent={{ name: opponentName, shipsRemaining: countRemainingShips(opponentGrid) }}
+        />
+      </div>
+
+      <div className="flex flex-col justify-center items-center gap-4 md:gap-8">
+        {/* Game info and timer */}
+        <div className="flex items-center gap-4">
+          <div className="text-sm text-gray-300">
+            Grid: {gridSize}x{gridSize}
+          </div>
+          {gameData.gameMode && (
+            <div className="text-sm text-gray-300 capitalize">
+              Mode: {gameData.gameMode}
             </div>
-            
-            {/* Player's grid has been removed */}
-          </div>
-
-          <div className="text-white text-lg sm:text-xl mt-3 sm:mt-4">
-            {isMyTurn ? "Your turn to attack!" : "Opponent's turn..."}
-          </div>
+          )}
+          {gameData.gameMode === 'friendly' && (
+            <div className="text-sm text-blue-400">
+              Room Code: {roomId}
+            </div>
+          )}
         </div>
-        
-        {countdown && (
-          <div className="fixed inset-0 flex items-center justify-center bg-black/70 z-50">
-            <div className="text-white text-6xl sm:text-7xl md:text-9xl font-bold animate-pulse">
-              {countdown}
-            </div>
-          </div>
+
+        {/* Turn Timer */}
+        {gameData.turnStartTime && !isPaused && (
+          <TurnTimer 
+            startTime={gameData.turnStartTime}
+            timeLimit={turnTimeLimit}
+            isMyTurn={isMyTurn}
+          />
         )}
-        
-        <div className="mt-4 sm:mt-6 md:mt-8 max-w-xs sm:max-w-md md:max-w-2xl lg:max-w-4xl mx-auto">
+
+        {/* Only display opponent's board */}
+        <div className="flex flex-col items-center w-full">
+          <h2 className="text-xl sm:text-2xl font-bold text-white mb-2 sm:mb-4 flex items-center gap-2">
+            <div className={`w-3 h-3 rounded-full ${isMyTurn ? 'bg-green-500 animate-pulse' : 'bg-gray-500'}`}></div>
+            {opponentName}'s Fleet
+          </h2>
+          <GameBoard 
+            grid={opponentGrid}
+            gridSize={gridSize}
+            isPlayerGrid={false}
+            onCellClick={isMyTurn && !isPaused ? handleAttack : null}
+            activeAbility={activeAbility}
+            hackerResult={hackerResult}
+            annihilateVertical={annihilateVertical}
+          />
+        </div>
+
+        {/* Abilities Panel */}
+        {gameData.settings?.abilities !== false && (
           <AbilityPanel 
             abilities={playerAbilities}
-            onUseAbility={handleAbilitySelect}
-            isMyTurn={isMyTurn}
-            onToggleReinforcementOrientation={() => setReinforcementVertical(!reinforcementVertical)}
-            reinforcementVertical={reinforcementVertical}
-            onToggleAnnihilateOrientation={() => setAnnihilateVertical(!annihilateVertical)}
-            annihilateVertical={annihilateVertical}
+            onAbilitySelect={setActiveAbility}
             activeAbility={activeAbility}
-          />
-        </div>
-        
-        {hackerResult && (
-          <div className="mt-3 sm:mt-4 bg-purple-700 p-3 sm:p-4 rounded-lg text-center max-w-xs sm:max-w-md mx-auto">
-            <h4 className="font-bold text-white text-sm sm:text-base">Hacker Ability Result</h4>
-            <p className="text-white text-xs sm:text-sm">
-              Ship detected at position {getCoordinateLabel(hackerResult.col, hackerResult.row)}
-            </p>
-          </div>
-        )}
-
-        {scanResult && (
-          <div className="mt-3 sm:mt-4 bg-yellow-700 p-3 sm:p-4 rounded-lg text-center max-w-xs sm:max-w-md mx-auto">
-            <h4 className="font-bold text-white text-sm sm:text-base">Scanner Result</h4>
-            <p className="text-white text-xs sm:text-sm">
-              Area scanned from {scanResult.col && scanResult.row ? 
-                getCoordinateLabel(scanResult.col, scanResult.row) : 
-                getCoordinateLabel(scanResult.targetCol, scanResult.targetRow)} 
-              contains {scanResult.shipCount} ship segments.
-            </p>
-          </div>
-        )}
-
-        {counterResult && (
-          <div className="mt-3 sm:mt-4 bg-blue-700 p-3 sm:p-4 rounded-lg text-center max-w-xs sm:max-w-md mx-auto">
-            <h4 className="font-bold text-white text-sm sm:text-base">Counter Ability Result</h4>
-            {counterResult.hit ? (
-              <>
-                <p className="text-white text-xs sm:text-sm">
-                  Your COUNTER ability hit enemy ship{counterResult.hits?.length > 1 ? 's' : ''}!
-                </p>
-                {counterResult.hits && counterResult.hits.length > 0 && (
-                  <p className="text-white text-xs sm:text-sm mt-1">
-                    Positions: {counterResult.hits.map(hit => 
-                      getCoordinateLabel(hit.col, hit.row)).join(', ')}
-                  </p>
-                )}
-              </>
-            ) : (
-              <>
-                <p className="text-white text-xs sm:text-sm">
-                  Enemy's COUNTER ability hit your ship{counterResult.hits?.length > 1 ? 's' : ''}!
-                </p>
-                {counterResult.hits && counterResult.hits.length > 0 && (
-                  <p className="text-white text-xs sm:text-sm mt-1">
-                    Positions: {counterResult.hits.map(hit => 
-                      getCoordinateLabel(hit.col, hit.row)).join(', ')}
-                  </p>
-                )}
-              </>
-            )}
-            <p className="text-white text-xs mt-1 italic">
-              "If I take a hit, you too take a hit"
-            </p>
-          </div>
-        )}
-
-        <div className="mt-4 sm:mt-6 text-center">
-          <button 
-            onClick={() => navigate('/')} 
-            className="px-3 sm:px-4 py-1 sm:py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 text-sm sm:text-base"
-          >
-            Leave Game
-          </button>
-        </div>
-
-        {toast && (
-          <Toast 
-            message={toast.message}
-            type={toast.type}
-            onDismiss={() => setToast(null)}
+            onToggleReinforcement={() => setReinforcementVertical(!reinforcementVertical)}
+            onToggleAnnihilate={() => setAnnihilateVertical(!annihilateVertical)}
+            isMyTurn={isMyTurn}
+            scanResult={scanResult}
+            disabled={isPaused}
           />
         )}
 
-        {error && (
-          <div className="bg-red-500/80 text-white p-3 rounded-lg shadow-lg mb-4 animate-pulse max-w-md mx-auto backdrop-blur-sm border border-red-400 flex items-center">
-            <svg className="w-5 h-5 mr-2 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-              <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zm-1 9a1 1 0 01-1-1v-4a1 1 0 112 0v4a1 1 0 01-1 1z" clipRule="evenodd" />
-            </svg>
-            <p>{error}</p>
+        {/* Player's own grid (smaller, for reference) */}
+        <div className="flex flex-col items-center w-full mt-4">
+          <h3 className="text-lg font-bold text-white mb-2">Your Fleet</h3>
+          <div className="transform scale-75">
+            <GameBoard 
+              grid={playerGrid}
+              gridSize={gridSize}
+              isPlayerGrid={true}
+              activeAbility={activeAbility === 'REINFORCEMENT' ? 'REINFORCEMENT' : null}
+              onCellClick={activeAbility === 'REINFORCEMENT' ? handleAttack : null}
+              reinforcementVertical={reinforcementVertical}
+              playerData={gameData.players?.[playerId] || {}}
+            />
           </div>
-        )}
-
-        <AbilityIndicator abilities={playerAbilities} />
-        <AbilityInfoBubble playerAbilities={playerAbilities} />
+        </div>        {/* Game controls */}
+        <div className="flex gap-4 mt-4">
+          {gameData?.gameOver ? (
+            <button
+              onClick={() => navigate('/')}
+              className="px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 font-semibold"
+            >
+              Return to Home
+            </button>
+          ) : (
+            <button
+              onClick={() => navigate('/')}
+              className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700"
+            >
+              Leave Game
+            </button>
+          )}
+          
+          {gameData.gameMode === 'friendly' && !gameData?.gameOver && (
+            <button
+              onClick={() => {
+                navigator.clipboard.writeText(roomId);
+                setToast({ type: 'success', message: 'Room code copied to clipboard!' });
+              }}
+              className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+            >
+              Share Room Code
+            </button>
+          )}
+        </div>
       </div>
-      
-      {isPaused && (
-        <div className="fixed inset-0 flex items-center justify-center bg-black/80 z-50">
-          <div className="text-white text-3xl sm:text-4xl md:text-5xl font-bold animate-pulse">
-            GAME PAUSED
-          </div>
-        </div>
-      )}
-    </div>
-  );
+    </div>  );
 };
 
 export default GameRoom;
