@@ -85,21 +85,13 @@ const GameRoom = () => {
       }    });
     
     return remainingShips;
-  };
-
-  // Initialize player ID from localStorage first
+  };  // Initialize player ID from localStorage first
   useEffect(() => {
     const storedPlayerId = localStorage.getItem('battleshipPlayerId');
-    const storedRoomId = localStorage.getItem('battleshipRoomId');
-    
-    console.log('GameRoom useEffect - storedPlayerId:', storedPlayerId);
-    console.log('GameRoom useEffect - storedRoomId:', storedRoomId);
-    console.log('GameRoom useEffect - roomId from params:', roomId);
     
     if (storedPlayerId) {
       setPlayerId(storedPlayerId);
     } else {
-      console.error('No stored player ID found, redirecting to home');
       navigate('/');
     }
   }, [navigate, roomId]);
@@ -109,21 +101,17 @@ const GameRoom = () => {
     if (!roomId || !playerId) {
       return; // Don't navigate here, let the first effect handle it
     }
-    
-    const roomRef = ref(database, `rooms/${roomId}`);
-    console.log("Setting up room subscription for roomId:", roomId);
+      const roomRef = ref(database, `rooms/${roomId}`);
     let hasReceivedData = false;
     let timeoutId = null;
     
     const unsubscribe = onValue(roomRef, (snapshot) => {
       const data = snapshot.val();
-      
-      if (!data) {
+        if (!data) {
         // Only redirect if we've been waiting for more than 5 seconds and never received data
         if (!hasReceivedData && !timeoutId) {
           timeoutId = setTimeout(() => {
             if (!hasReceivedData) {
-              console.error("Room not found after 5 second timeout, redirecting to home");
               navigate('/');
             }
           }, 5000); // Wait 5 seconds before giving up
@@ -139,7 +127,6 @@ const GameRoom = () => {
       
       hasReceivedData = true;
       setLoading(false);
-      console.log("Room data received:", data);
       setGameData(data);
       
       // Update grid size from room settings
@@ -157,18 +144,12 @@ const GameRoom = () => {
 
       // Set turn status
       setIsMyTurn(data.currentTurn === playerId);
-      setIsPaused(data.isPaused || false);
-
-      // Get player's own grid
+      setIsPaused(data.isPaused || false);      // Get player's own grid
       if (data.players && data.players[playerId]?.PlacementData?.grid) {
-        console.log("Updating player grid");
         setPlayerGrid(JSON.parse(JSON.stringify(data.players[playerId].PlacementData.grid)));
-      }
-
-      // Get opponent's grid with ships hidden
+      }      // Get opponent's grid with ships hidden
       const opponentId = Object.keys(data.players || {}).find(id => id !== playerId);
       if (opponentId && data.players[opponentId]?.PlacementData?.grid) {
-        console.log("Updating opponent grid");
         const opponentGridData = JSON.parse(JSON.stringify(data.players[opponentId].PlacementData.grid));
         
         // Create a fresh grid to ensure we only copy specific properties
@@ -247,9 +228,7 @@ const GameRoom = () => {
           throw new Error('Invalid ability');
       }
       
-      setToast({ type: 'success', message: `Ability ${ability} activated!` });
-    } catch (error) {
-      console.error('Ability activation error:', error);
+      setToast({ type: 'success', message: `Ability ${ability} activated!` });    } catch (error) {
       setToast({ type: 'error', message: error.message });
     } finally {
       setActiveAbility(null);
@@ -265,9 +244,7 @@ const GameRoom = () => {
       } else {
         await makeMove(roomId, playerId, y, x);
         setToast({ type: 'info', message: `Attacked ${getCoordinateLabel(x, y)}` });
-      }
-    } catch (error) {
-      console.error('Attack failed:', error);
+      }    } catch (error) {
       setToast({ type: 'error', message: error.message });
     }
   };

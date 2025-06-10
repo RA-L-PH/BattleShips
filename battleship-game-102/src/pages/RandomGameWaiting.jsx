@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { findRandomMatch, leaveRandomGameQueue, checkMatchStatus } from '../services/gameModesService';
 import { FaSpinner, FaTimes, FaUsers } from 'react-icons/fa';
@@ -13,18 +13,17 @@ const RandomGameWaiting = () => {
   const playerName = localStorage.getItem('battleshipPlayerName');
   const queueId = localStorage.getItem('randomGameQueueId');
 
-  const handleCancel = async () => {
+  const handleCancel = useCallback(async () => {
     try {
       if (queueId) {
         await leaveRandomGameQueue(queueId);
       }
       localStorage.removeItem('randomGameQueueId');
       navigate('/');
-    } catch (err) {
-      console.error('Error leaving queue:', err);
+    } catch (_) {
       navigate('/');
     }
-  };
+  }, [queueId, navigate]);
 
   useEffect(() => {
     if (!playerId || !playerName || !queueId) {
@@ -68,9 +67,7 @@ const RandomGameWaiting = () => {
           
           // Navigate to ship placement (players already added to room automatically)
           navigate(`/place-ships/${match.roomId}`, { replace: true });
-        }
-      } catch (err) {
-        console.error('Error finding match:', err);
+        }      } catch (err) {
         setError(err.message);
       }
     }, 3000);    return () => {

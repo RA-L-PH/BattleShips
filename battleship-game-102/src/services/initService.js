@@ -12,15 +12,13 @@ export const initializeSuperAdmin = async () => {
 
     await createSuperAdmin(
       defaultSuperAdmin.username,
-      defaultSuperAdmin.password,
-      defaultSuperAdmin.displayName
+      defaultSuperAdmin.password,      defaultSuperAdmin.displayName
     );
 
-    console.log('Default SuperAdmin created successfully');
   } catch (error) {
     // If error is about duplicate, that's fine - SuperAdmin already exists
     if (!error.message.includes('already exists')) {
-      console.error('Error initializing SuperAdmin:', error);
+      // Error initializing SuperAdmin
     }
   }
 };
@@ -53,23 +51,21 @@ export const initializeDefaultAdmins = async (superAdminId) => {
           admin.displayName,
           superAdminId,
           admin.permissions
-        );
-      } catch (error) {
+        );      } catch (error) {
         // Ignore if admin already exists
         if (!error.message.includes('already exists')) {
-          console.error(`Error creating admin ${admin.username}:`, error);
+          // Error creating admin
         }
       }
-    }
-  } catch (error) {
-    console.error('Error initializing default admins:', error);
+    }  } catch (error) {
+    // Error initializing default admins
   }
 };
 
 // Combined initialization function
 export const initializeDefaults = async () => {
   try {
-    console.log('Initializing default accounts...');
+    // Initializing default accounts
     
     // First initialize SuperAdmin
     await initializeSuperAdmin();
@@ -77,9 +73,9 @@ export const initializeDefaults = async () => {
     // Then initialize default admins (we don't need the superAdminId for this simple version)
     await initializeDefaultAdmins();
     
-    console.log('Default initialization completed');
+    // Default initialization completed
   } catch (error) {
-    console.error('Error during default initialization:', error);
+    // Error during default initialization
   }
 };
 

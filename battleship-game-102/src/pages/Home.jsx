@@ -51,10 +51,7 @@ const Home = () => {
       localStorage.setItem('battleshipRoomId', formattedRoomId);
 
       // Navigate to ship placement page
-      navigate(`/place-ships/${formattedRoomId}`, { replace: true });
-
-    } catch (err) {
-      console.error('❌ Failed to join room:', err);
+      navigate(`/place-ships/${formattedRoomId}`, { replace: true });    } catch (err) {
       setError(err.message);
     } finally {
       setLoading(false);
@@ -92,10 +89,7 @@ const Home = () => {
       } else {
         // Joined existing room, go directly to ship placement
         navigate(`/place-ships/${result.roomId}`, { replace: true });
-      }
-
-    } catch (err) {
-      console.error('❌ Failed to find/create random game:', err);
+      }    } catch (err) {
       setError(err.message);
     } finally {
       setLoading(false);
@@ -125,10 +119,7 @@ const Home = () => {
       await joinRoom(roomId, playerId, playerName.trim());
 
       // Navigate to ship placement page
-      navigate(`/place-ships/${roomId}`, { replace: true });
-
-    } catch (err) {
-      console.error('❌ Failed to create friendly game:', err);
+      navigate(`/place-ships/${roomId}`, { replace: true });    } catch (err) {
       setError(err.message);
     } finally {
       setLoading(false);

@@ -228,19 +228,15 @@ const ShipPlacement = ({ onComplete }) => {
           const gridSize = getGridSize(roomData.settings);
           const ships = getShipConfiguration(roomData.settings);
           
-          setGridSize(gridSize);
-          setShips(ships);
+          setGridSize(gridSize);          setShips(ships);
           setMaxShips(ships.length);
           setGrid(createEmptyGrid(gridSize));
-          setCatalogQueue([...ships]);
-          console.log('Room settings loaded - Grid size:', gridSize, 'Ships:', ships.length);
-        } else {
+          setCatalogQueue([...ships]);        } else {
           // Use defaults if no settings
           setGrid(createEmptyGrid(GRID_SIZE));
           setCatalogQueue([...SHIPS]);
         }
       } catch (err) {
-        console.error('Error loading room settings:', err);
         // Use defaults if error
         setGrid(createEmptyGrid(GRID_SIZE));
         setCatalogQueue([...SHIPS]);
@@ -277,12 +273,8 @@ const ShipPlacement = ({ onComplete }) => {
     if (!placedShips.has(ship.id) && placedShips.size >= MAX_SHIPS) return false;
 
     return true;
-  }, [grid, placedShips, GRID_SIZE, MAX_SHIPS]);
-  const handleDrop = (x, y, ship, shipIsVertical) => {
-    console.log('Attempting to place ship:', ship.name, 'at', x, y, 'vertical:', shipIsVertical);
-    
+  }, [grid, placedShips, GRID_SIZE, MAX_SHIPS]);  const handleDrop = (x, y, ship, shipIsVertical) => {
     if (!checkValidPlacement(x, y, ship, shipIsVertical)) {
-      console.log('Invalid placement for ship:', ship.name);
       return;
     }
 
@@ -311,10 +303,7 @@ const ShipPlacement = ({ onComplete }) => {
     // Remove from catalog if it was there
     if (!placedShips.has(ship.id)) {
       setCatalogQueue(current => current.filter(s => s.id !== ship.id));
-    }
-
-    setSelectedShip(ship);
-    console.log('Ship placed successfully:', ship.name);
+    }    setSelectedShip(ship);
   };
 
   const handleShipSelect = (ship) => {
@@ -335,18 +324,14 @@ const ShipPlacement = ({ onComplete }) => {
 
   const handleHover = (x, y, ship, shipIsVertical) => {
     setHoverCoords({ x, y, ship, isVertical: shipIsVertical });
-  };
-  const handleClearPlacement = () => {
-    console.log('Clearing all ship placements');
+  };  const handleClearPlacement = () => {
     setGrid(Array(GRID_SIZE).fill().map(() => Array(GRID_SIZE).fill(null)));
     setPlacedShips(new Map());
     setShipRotations(new Map());
     setSelectedShip(null);
     setCatalogQueue([...SHIPS].slice(0, MAX_SHIPS));
   };
-
   const handleAutoPlace = () => {
-    console.log('Auto-placing ships');
     const newGrid = Array(GRID_SIZE).fill().map(() => Array(GRID_SIZE).fill(null));
     const newPlacedShips = new Map();
     const newRotations = new Map();
@@ -387,25 +372,17 @@ const ShipPlacement = ({ onComplete }) => {
             }
             
             newPlacedShips.set(ship.id, { x, y, vertical });
-            newRotations.set(ship.id, vertical ? 90 : 0);
-            placed = true;
-            console.log(`Auto-placed ${ship.name} at ${x},${y} ${vertical ? 'vertical' : 'horizontal'}`);
+            newRotations.set(ship.id, vertical ? 90 : 0);            placed = true;
           }
         }
         attempts++;
       }
-      
-      if (!placed) {
-        console.warn(`Could not auto-place ${ship.name} after ${maxAttempts} attempts`);
-      }
     });
-    
-    setGrid(newGrid);
+      setGrid(newGrid);
     setPlacedShips(newPlacedShips);
     setShipRotations(newRotations);
     setCatalogQueue([]);
     setSelectedShip(null);
-    console.log('Auto-placement complete');
   };
 
   const updateShipPlacement = async (roomId, playerId, placementData) => {
@@ -482,14 +459,10 @@ const ShipPlacement = ({ onComplete }) => {
 
         if (!success) {
           throw new Error('Failed to update ship placement');
-        }
-
-        setIsSaving(false);
+        }        setIsSaving(false);
         setIsSaved(true);
-        console.log('✅ Ship placement saved successfully');
 
       } catch (error) {
-        console.error('Error saving ship placement:', error);
         setErrorMessage(error.message);
         setIsSaving(false);
       }
@@ -530,20 +503,16 @@ const ShipPlacement = ({ onComplete }) => {
                 setStatusMessage("Game starting in 2...");
                 setTimeout(() => {
                   setStatusMessage("Game starting in 1...");
-                  setTimeout(async () => {
-                    try {
+                  setTimeout(async () => {                    try {
                       const { startGame } = await import('../services/adminService');
                       await startGame(roomId);
                       setStatusMessage("Starting game...");
                     } catch (error) {
-                      console.error('Error auto-starting game:', error);
                       setStatusMessage("Error starting game. Please try again...");
                     }
                   }, 1000);
                 }, 1000);
-              }, 1000);
-            } catch (error) {
-              console.error('Error auto-starting game:', error);
+              }, 1000);            } catch (error) {
               setStatusMessage("Error starting game. Waiting for manual start...");
             }
           } else {
@@ -638,14 +607,13 @@ const ShipPlacement = ({ onComplete }) => {
           Object.entries(parsedData.ships).forEach(([shipId, shipData]) => {
             newRotations.set(shipId, shipData.rotation || 0);
           });
-          setShipRotations(newRotations);
-        }
+          setShipRotations(newRotations);        }
 
       } catch (error) {
-        console.error('Error loading data from localStorage:', error);
+        // Error loading data from localStorage - continue with default state
       }
     }
-  }, []);
+  }, [GRID_SIZE]);
   useEffect(() => {
     const roomId = localStorage.getItem('battleshipRoomId');
     const playerId = localStorage.getItem('battleshipPlayerId');
@@ -674,13 +642,8 @@ const ShipPlacement = ({ onComplete }) => {
       if (room.countdown) {
         setStatusMessage(`Game starting in ${room.countdown}...`);
       }
-      
-      // If game started, navigate to the game room
+        // If game started, navigate to the game room
       if (room.gameStarted) {
-        console.log('Game started, navigating to room:', roomId);
-        console.log('Current room data:', room);
-        console.log('Stored player ID:', localStorage.getItem('battleshipPlayerId'));
-        console.log('Stored room ID:', localStorage.getItem('battleshipRoomId'));
         navigate(`/room/${roomId}`);
       }
     });

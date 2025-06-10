@@ -43,11 +43,9 @@ export const createRoom = async (roomId, adminId, gameMode = 'admin', settings =
 
     // Save room data
     await set(roomRef, room);
-    console.log('Room created:', roomId, 'Mode:', gameMode);
     return true;
 
   } catch (error) {
-    console.error('Error creating room:', error);
     throw error;
   }
 };
@@ -94,7 +92,7 @@ export const getShipConfiguration = (settings) => {
   return ships.filter(ship => ship.size <= gridSize);
 };
 
-// Make sure this is properly implemented in the main attack function
+// Main attack function - this should be the primary one used
 export const makeMove = async (roomId, playerId, row, col) => {
   try {
     const roomRef = ref(database, `rooms/${roomId}`);
@@ -112,7 +110,7 @@ export const makeMove = async (roomId, playerId, row, col) => {
     const opponentId = Object.keys(room.players).find(id => id !== playerId);
     if (!opponentId) throw new Error('Opponent not found');
     
-    // Then check for JAM protection
+    // Check for JAM protection
     if (checkJamProtection(room, opponentId)) {
       const updates = {};
       
@@ -156,7 +154,7 @@ export const makeMove = async (roomId, playerId, row, col) => {
     }
 
     // Check if there's a ship at this position
-    const isHit = Boolean(cell.ship); // Convert to boolean to ensure correct hit detection
+    const isHit = Boolean(cell.ship);
 
     // Generate coordinate labels based on grid size
     const colLabels = Array.from({ length: gridSize }, (_, i) => String.fromCharCode(65 + i));
@@ -167,7 +165,6 @@ export const makeMove = async (roomId, playerId, row, col) => {
     
     // Set turn start time for timer
     updates[`/rooms/${roomId}/turnStartTime`] = Date.now();
-    updates[`/rooms/${roomId}/currentTurn`] = opponentId; // Switch turn immediately
     
     if (isHit) {
       // Mark as hit if there's a ship
@@ -186,32 +183,47 @@ export const makeMove = async (roomId, playerId, row, col) => {
         
         // Save game history
         await saveGameHistory(roomId, room);
+      } else {
+        // Only switch turns if game is not over
+        updates[`/rooms/${roomId}/currentTurn`] = opponentId;
       }
     } else {
-      // Mark as miss if there's no ship (ensure we set miss to true and hit to false)
+      // Mark as miss if there's no ship
       updates[`/rooms/${roomId}/players/${opponentId}/PlacementData/grid/${row}/${col}/hit`] = false;
       updates[`/rooms/${roomId}/players/${opponentId}/PlacementData/grid/${row}/${col}/miss`] = true;
       updates[`/rooms/${roomId}/players/${opponentId}/PlacementData/grid/${row}/${col}/attackLabel`] = cellLabel;
+      
+      // Switch turns for miss
+      updates[`/rooms/${roomId}/currentTurn`] = opponentId;
     }
+
+    // Record the move
+    updates[`/rooms/${roomId}/moves/${Date.now()}`] = {
+      type: 'attack',
+      attackerId: playerId,
+      defenderId: opponentId,
+      targetRow: row,
+      targetCol: col,
+      isHit,
+      cellLabel,
+      timestamp: Date.now()
+    };
 
     // Update the database
     await update(ref(database), updates);
     
-    // Inside the makeMove or attack function where you handle successful hits:
-    if (isHit) {
-      // After recording the hit, check for counter attack
+    // Check for counter attack after successful hit
+    if (isHit && !updates[`/rooms/${roomId}/gameOver`]) {
       await checkForCounterAttack(roomId, playerId, opponentId, row, col);
     }
-    
-    // Return exact coordinates
-    return { isHit, row, col };
+
+    return { isHit, row, col, cellLabel };
   } catch (error) {
-    console.error('Error making move:', error);
     throw error;
   }
 };
 
-// Updated ship placement to handle custom settings
+// Ship placement function
 export const placeShips = async (roomId, playerId, grid) => {
   try {
     const updates = {};
@@ -229,17 +241,17 @@ export const placeShips = async (roomId, playerId, grid) => {
         status: 'playing',
         gameStarted: true,
         turnStartTime: Date.now(),
-        currentTurn: Object.keys(room.players)[0] // Set the first player as the current turn
+        currentTurn: Object.keys(room.players)[0]
       });
     }
   } catch (error) {
-    console.error('Error placing ships:', error);
     throw error;
   }
 };
 
 // Function to save game history when game completes
-export const saveGameHistory = async (roomId, roomData) => {  try {
+export const saveGameHistory = async (roomId, roomData) => {
+  try {
     const gameHistory = {
       roomId,
       gameMode: roomData.gameMode,
@@ -268,19 +280,16 @@ export const saveGameHistory = async (roomId, roomData) => {  try {
       });
     }
 
-    // After successfully saving to Firestore, clear from Realtime Database
-    // Wait a few seconds to ensure players have seen the game over state
+    // Clear from Realtime Database after delay
     setTimeout(async () => {
       try {
         const { ref, remove } = await import('firebase/database');
         const { database } = await import('./firebaseConfig');
         await remove(ref(database, `rooms/${roomId}`));
-        console.log(`Game ${roomId} cleared from Realtime Database`);
       } catch (clearError) {
-        console.error('Error clearing game from Realtime Database:', clearError);
+        console.error('Error clearing game from database:', clearError);
       }
-    }, 10000); // 10 seconds delay
-
+    }, 10000);
   } catch (error) {
     console.error('Error saving game history:', error);
   }
@@ -291,14 +300,14 @@ const checkGameOver = (grid) => {
   for (const row of grid) {
     for (const cell of row) {
       if (cell.ship && !cell.hit) {
-        return false; // Found a ship that hasn't been hit
+        return false;
       }
     }
   }
-  return true; // All ships have been sunk
+  return true;
 };
 
-// Add new function to update ship placement
+// Update ship placement function
 export const updateShipPlacement = async (roomId, playerId, placementData) => {
   try {
     const playerRef = ref(database, `rooms/${roomId}/players/${playerId}`);
@@ -315,14 +324,13 @@ export const updateShipPlacement = async (roomId, playerId, placementData) => {
     };
 
     await update(ref(database), updates);
-    console.log('Ship placement updated for player:', playerId);
     return true;
   } catch (error) {
-    console.error('Error updating placement:', error);
     throw error;
   }
 };
 
+// Join room function
 export const joinRoom = async (roomId, playerId, playerName = 'Player') => {
   try {
     const roomRef = ref(database, `rooms/${roomId}`);
@@ -349,15 +357,45 @@ export const joinRoom = async (roomId, playerId, playerName = 'Player') => {
 
     await update(ref(database), updates);
     localStorage.setItem('battleshipPlayerId', playerId);
-    console.log('Player joined room:', roomId);
     return true;
   } catch (error) {
-    console.error('Error joining room:', error);
     throw error;
   }
 };
 
-// Update the attack function to handle JAM protection correctly
+// Record turn timeout function
+export const recordTurnTimeout = async (roomId, playerId) => {
+  try {
+    const roomRef = ref(database, `rooms/${roomId}`);
+    const snapshot = await get(roomRef);
+    const room = snapshot.val();
+
+    if (!room) throw new Error('Room not found');
+    
+    const opponentId = Object.keys(room.players).find(id => id !== playerId);
+    if (!opponentId) throw new Error('Opponent not found');
+
+    const updates = {};
+    
+    // Record the timeout event
+    updates[`/rooms/${roomId}/moves/${Date.now()}`] = {
+      type: 'timeout',
+      playerId,
+      timestamp: Date.now()
+    };
+    
+    // Switch turns
+    updates[`/rooms/${roomId}/currentTurn`] = opponentId;
+    updates[`/rooms/${roomId}/turnStartTime`] = Date.now();
+
+    await update(ref(database), updates);
+    return true;
+  } catch (error) {
+    throw error;
+  }
+}
+// Helper function to get coordinate labels
+
 
 export const attack = async (roomId, attackerId, row, col, cellLabel = '') => {
   try {
@@ -441,9 +479,7 @@ export const attack = async (roomId, attackerId, row, col, cellLabel = '') => {
       await checkForCounterAttack(roomId, attackerId, defenderId, row, col);
     }
     
-    return { success: true, isHit };
-  } catch (error) {
-    console.error('Error making move:', error);
+    return { success: true, isHit };  } catch (error) {
     throw error;
   }
 };
@@ -587,9 +623,7 @@ export const makeAttack = async (roomId, playerId, targetRow, targetCol) => {
       }
     }
     
-    return { isHit, targetRow, targetCol, shipDestroyed, gameOver: allShipsDestroyed };
-  } catch (error) {
-    console.error('Error making attack:', error);
+    return { isHit, targetRow, targetCol, shipDestroyed, gameOver: allShipsDestroyed };  } catch (error) {
     throw error;
   }
 };
@@ -626,11 +660,11 @@ export const recordTurnTimeout = async (roomId, playerId) => {
     
     // Switch turns
     updates[`/rooms/${roomId}/currentTurn`] = opponentId;
-    
+    updates[`/rooms/${roomId}/turnStartTime`] = Date.now();
+
     await update(ref(database), updates);
     return true;
   } catch (error) {
-    console.error('Error recording turn timeout:', error);
     throw error;
   }
 };
@@ -677,10 +711,8 @@ export const performAttack = async (roomId, attackerId, opponentId, targetRow, t
     
     // Update database
     await update(ref(database), updates);
-    
-    return { success: true, isHit, cellLabel };
+      return { success: true, isHit, cellLabel };
   } catch (error) {
-    console.error("Error performing attack:", error);
     return { success: false, error: error.message };
   }
 };
