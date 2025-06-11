@@ -10,7 +10,8 @@ const GameBoard = ({
   annihilateVertical = false,
   hackerResult = null,
   playerData = {}, // Default to empty object to avoid errors
-  gridSize = 8 // Support dynamic grid size
+  gridSize = 8, // Support dynamic grid size
+  adminView = false // Flag for admin view specific rendering
 }) => {
   // Ensure we have a proper grid with dynamic size
   const normalizedGrid = Array.isArray(grid) && grid.length === gridSize ? grid : 
@@ -113,15 +114,26 @@ const GameBoard = ({
   };
 
   const renderCell = (cell = {}, x, y) => {
-    let cellContent = null;
-    let cellClass = "border-2 border-gray-600 rounded flex items-center justify-center transition-all duration-200 ";
+    let cellContent = null;    let cellClass = "border-2 border-gray-600 rounded flex items-center justify-center transition-all duration-200 ";
       // Add responsive sizing with mobile-first approach
-    if (gridSize <= 8) {
-      cellClass += "w-7 h-7 sm:w-9 sm:h-9 md:w-11 md:h-11 ";
-    } else if (gridSize <= 10) {
-      cellClass += "w-6 h-6 sm:w-8 sm:h-8 md:w-10 md:h-10 ";
+    if (adminView) {
+      // Smaller cells for admin view
+      if (gridSize <= 8) {
+        cellClass += "w-6 h-6 sm:w-7 sm:h-7 md:w-8 md:h-8 ";
+      } else if (gridSize <= 10) {
+        cellClass += "w-5 h-5 sm:w-6 sm:h-6 md:w-7 md:h-7 ";
+      } else {
+        cellClass += "w-4 h-4 sm:w-5 sm:h-5 md:w-6 md:h-6 ";
+      }
     } else {
-      cellClass += "w-5 h-5 sm:w-7 sm:h-7 md:w-9 md:h-9 ";
+      // Standard cell sizes for player view
+      if (gridSize <= 8) {
+        cellClass += "w-7 h-7 sm:w-9 sm:h-9 md:w-11 md:h-11 ";
+      } else if (gridSize <= 10) {
+        cellClass += "w-6 h-6 sm:w-8 sm:h-8 md:w-10 md:h-10 ";
+      } else {
+        cellClass += "w-5 h-5 sm:w-7 sm:h-7 md:w-9 md:h-9 ";
+      }
     }
 
     // Coordinate label for this cell (for reference only, not displayed to players)
@@ -257,12 +269,15 @@ const GameBoard = ({
     // Add classes to your grid container
     <div className={`grid-container ${jamActive ? 'jam-shield-active' : ''}`}>
       <div className="bg-gray-800 p-3 sm:p-4 md:p-6 rounded-lg shadow-lg transition-all duration-300 hover:shadow-2xl">        {normalizedGrid.map((row, y) => (
-          <div key={`row-${y}`} className="flex">
-            {/* Row label */}
+          <div key={`row-${y}`} className="flex">            {/* Row label */}
             <div className={`flex items-center justify-center text-gray-300 font-semibold
-              ${gridSize <= 8 ? 'w-5 h-7 sm:w-6 sm:h-9 md:w-8 md:h-11 text-xs sm:text-sm' : 
-                gridSize <= 10 ? 'w-4 h-6 sm:w-5 sm:h-8 md:w-6 md:h-10 text-xs' : 
-                'w-3 h-5 sm:w-4 sm:h-7 md:w-5 md:h-9 text-xs'}`}
+              ${adminView 
+                ? (gridSize <= 8 ? 'w-4 h-6 sm:w-5 sm:h-7 md:w-6 md:h-8 text-xs' : 
+                   gridSize <= 10 ? 'w-3 h-5 sm:w-4 sm:h-6 md:w-5 md:h-7 text-xs' : 
+                   'w-2 h-4 sm:w-3 sm:h-5 md:w-4 md:h-6 text-xs')
+                : (gridSize <= 8 ? 'w-5 h-7 sm:w-6 sm:h-9 md:w-8 md:h-11 text-xs sm:text-sm' : 
+                   gridSize <= 10 ? 'w-4 h-6 sm:w-5 sm:h-8 md:w-6 md:h-10 text-xs' : 
+                   'w-3 h-5 sm:w-4 sm:h-7 md:w-5 md:h-9 text-xs')}`}
             >
               {getDisplayLabel(y, false)}
             </div>
@@ -285,15 +300,18 @@ const GameBoard = ({
               gridSize <= 10 ? 'w-4 h-4 sm:w-5 sm:h-5 md:w-6 md:h-6' : 
               'w-3 h-3 sm:w-4 sm:h-4 md:w-5 md:h-5'}`}>
           </div>
-          
-          {/* Column labels (A-H) - always left to right */}
+            {/* Column labels (A-H) - always left to right */}
           {Array.from({ length: gridSize }, (_, i) => (
             <div 
               key={`col-${i}`} 
               className={`flex items-center justify-center text-gray-300 font-semibold
-                ${gridSize <= 8 ? 'w-7 h-5 sm:w-9 sm:h-6 md:w-11 md:h-8 text-xs sm:text-sm' : 
-                  gridSize <= 10 ? 'w-6 h-4 sm:w-8 sm:h-5 md:w-10 md:h-6 text-xs' : 
-                  'w-5 h-3 sm:w-7 sm:h-4 md:w-9 md:h-5 text-xs'}`}
+                ${adminView 
+                  ? (gridSize <= 8 ? 'w-6 h-4 sm:w-7 sm:h-5 md:w-8 md:h-6 text-xs' : 
+                     gridSize <= 10 ? 'w-5 h-3 sm:w-6 sm:h-4 md:w-7 md:h-5 text-xs' : 
+                     'w-4 h-2 sm:w-5 sm:h-3 md:w-6 md:h-4 text-xs') 
+                  : (gridSize <= 8 ? 'w-7 h-5 sm:w-9 sm:h-6 md:w-11 md:h-8 text-xs sm:text-sm' : 
+                     gridSize <= 10 ? 'w-6 h-4 sm:w-8 sm:h-5 md:w-10 md:h-6 text-xs' : 
+                     'w-5 h-3 sm:w-7 sm:h-4 md:w-9 md:h-5 text-xs')}`}
             >
               {getDisplayLabel(i, true)}
             </div>

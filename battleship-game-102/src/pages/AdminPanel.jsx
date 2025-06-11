@@ -5,14 +5,15 @@ import { createCustomGame } from '../services/gameModesService';
 import { useNavigate } from 'react-router-dom';
 import AdminControls from '../components/AdminControls';
 import { FaPlus, FaSignOutAlt, FaGamepad, FaCog, FaCrown } from 'react-icons/fa';
+import { isDesktopDevice } from '../utils/deviceDetect';
 
 const AdminPanel = () => {
   const navigate = useNavigate();
   const [rooms, setRooms] = useState([]);
   const [newRoomId, setNewRoomId] = useState('');
   const [error, setError] = useState('');
-  const [showCustomSettings, setShowCustomSettings] = useState(false);
-  const [adminId, setAdminId] = useState(localStorage.getItem('adminId') || '');
+  const [showCustomSettings, setShowCustomSettings] = useState(false);  const [adminId, setAdminId] = useState(localStorage.getItem('adminId') || '');
+  const [isDesktop, setIsDesktop] = useState(true);
   const adminDisplayName = localStorage.getItem('adminDisplayName') || 'Admin';
   const adminPermissions = JSON.parse(localStorage.getItem('adminPermissions') || '{}');
   
@@ -54,6 +55,18 @@ const AdminPanel = () => {
 
     return () => unsubscribe();
   }, [adminId, navigate]);
+
+  // Check device type
+  useEffect(() => {
+    setIsDesktop(isDesktopDevice());
+    
+    const handleResize = () => {
+      setIsDesktop(isDesktopDevice());
+    };
+    
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   const handleCreateRoom = async () => {
     try {
@@ -137,15 +150,16 @@ const AdminPanel = () => {
                   )}
                 </div>
               )}
-            </div>
-            <div className="flex items-center gap-4">
-              <button
-                onClick={() => navigate('/super-admin-login')}
-                className="flex items-center gap-2 px-4 py-2 bg-yellow-600 text-white rounded hover:bg-yellow-700"
-              >
-                <FaCrown />
-                SuperAdmin
-              </button>
+            </div>            <div className="flex items-center gap-4">
+              {isDesktop && (
+                <button
+                  onClick={() => navigate('/super-admin-login')}
+                  className="flex items-center gap-2 px-4 py-2 bg-yellow-600 text-white rounded hover:bg-yellow-700"
+                >
+                  <FaCrown />
+                  SuperAdmin
+                </button>
+              )}
               <button 
                 onClick={handleLogout} 
                 className="flex items-center gap-2 px-4 py-2 bg-gray-700 text-white rounded hover:bg-gray-600"

@@ -9,17 +9,14 @@ import AdminRoomView from "./pages/AdminRoomView";
 import SuperAdminLogin from "./components/SuperAdminLogin";
 import SuperAdminPanel from "./pages/SuperAdminPanel";
 import RandomGameWaiting from "./pages/RandomGameWaiting";
-import { initService } from "./services/initService";
 import { cleanupService } from "./services/cleanupService";
 
-const App = () => {
-  // Initialize the app on startup
+const App = () => {  // Initialize the app on startup
   useEffect(() => {
     const initializeApp = async () => {
       try {
-        // Initialize default accounts
-        await initService.initializeDefaults();
-
+        // Admin initialization removed - using manual creation instead
+        
         // Start cleanup service
         const stopCleanup = cleanupService.startPeriodicCleanup();
 

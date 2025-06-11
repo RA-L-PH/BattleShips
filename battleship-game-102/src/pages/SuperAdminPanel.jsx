@@ -20,6 +20,7 @@ import {
   FaHistory,
   FaEye
 } from 'react-icons/fa';
+import { isDesktopDevice } from '../utils/deviceDetect';
 import ActiveRoomsMonitor from '../components/ActiveRoomsMonitor';
 
 const SuperAdminPanel = () => {
@@ -49,6 +50,7 @@ const SuperAdminPanel = () => {
       manageGames: true
     }
   });
+  const [isDesktop, setIsDesktop] = useState(true);
 
   const superAdminDisplayName = localStorage.getItem('superAdminDisplayName') || 'SuperAdmin';
   const superAdminId = localStorage.getItem('superAdminId');
@@ -62,6 +64,18 @@ const SuperAdminPanel = () => {
     
     loadData();
   }, [navigate]);
+
+  // Check device type
+  useEffect(() => {
+    setIsDesktop(isDesktopDevice());
+    
+    const handleResize = () => {
+      setIsDesktop(isDesktopDevice());
+    };
+    
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   const loadData = async () => {
     try {
@@ -255,14 +269,15 @@ const SuperAdminPanel = () => {
                 SuperAdmin Dashboard
               </h1>
               <p className="text-gray-400 mt-1">Welcome, {superAdminDisplayName}</p>
-            </div>
-            <div className="flex items-center gap-4">
-              <button
-                onClick={() => navigate('/admin-login')}
-                className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
-              >
-                Switch to Admin
-              </button>
+            </div>            <div className="flex items-center gap-4">
+              {isDesktop && (
+                <button
+                  onClick={() => navigate('/admin-login')}
+                  className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+                >
+                  Switch to Admin
+                </button>
+              )}
               <button 
                 onClick={handleLogout} 
                 className="flex items-center gap-2 px-4 py-2 bg-gray-700 text-white rounded hover:bg-gray-600"

@@ -3,7 +3,7 @@ import { DndProvider, useDrag, useDrop } from 'react-dnd';
 import { HTML5Backend } from 'react-dnd-html5-backend';
 import { TouchBackend } from 'react-dnd-touch-backend';
 import { isTouchDevice } from '../utils/deviceDetect';
-import { FaTrash, FaCheck, FaShip } from 'react-icons/fa';
+import { FaTrash, FaCheck, FaShip, FaCopy } from 'react-icons/fa';
 import { BiRotateRight } from 'react-icons/bi';
 import { getDatabase, ref, get, update, onValue } from 'firebase/database';
 import { useNavigate } from 'react-router-dom';
@@ -183,13 +183,16 @@ const Cell = ({ x, y, onDrop, onHover, onClick, isValidPlacement, children }) =>
   );
 };
 
-const ShipPlacement = ({ onComplete }) => {
+const ShipPlacement = () => {
   const navigate = useNavigate();
-  
-  // State for dynamic configuration
+    // State for dynamic configuration
   const [GRID_SIZE, setGridSize] = useState(8);
   const [SHIPS, setShips] = useState(DEFAULT_SHIPS);
   const [MAX_SHIPS, setMaxShips] = useState(5);
+  const [roomData, setRoomData] = useState(null);
+  const [roomId, setRoomId] = useState('');
+  const [isHost, setIsHost] = useState(false);
+  const [copySuccess, setCopySuccess] = useState(false);
   
   // Existing state
   const [grid, setGrid] = useState([]);
@@ -198,45 +201,66 @@ const ShipPlacement = ({ onComplete }) => {
   const [shipRotations, setShipRotations] = useState(new Map());
   const [hoverCoords, setHoverCoords] = useState(null);
   const [catalogQueue, setCatalogQueue] = useState([]);
-  const [isSaving, setIsSaving] = useState(false);
-  const [isSaved, setIsSaved] = useState(false);  const [errorMessage, setErrorMessage] = useState('');
+  const [isSaving, setIsSaving] = useState(false);  const [isSaved, setIsSaved] = useState(false);
+  const [errorMessage, setErrorMessage] = useState('');
   const [statusMessage, setStatusMessage] = useState('');
-  const [placementMode, setPlacementMode] = useState('drag'); // 'drag' or 'click'
 
   // Initialize grid based on size
   const createEmptyGrid = useCallback((size) => {
     return Array(size).fill().map(() => Array(size).fill(null));
-  }, []);
-  // Load room settings and configure game
+  }, []);  // Load room settings and configure game
   useEffect(() => {
     const loadRoomSettings = async () => {
       try {
-        const roomId = localStorage.getItem('battleshipRoomId');
-        if (!roomId) {
+        const currentRoomId = localStorage.getItem('battleshipRoomId');
+        const currentPlayerId = localStorage.getItem('battleshipPlayerId');
+        
+        if (!currentRoomId) {
           // Use defaults if no room
           setGrid(createEmptyGrid(GRID_SIZE));
           setCatalogQueue([...SHIPS]);
           return;
         }
 
+        // Set room ID for copy functionality
+        setRoomId(currentRoomId);
+
         const db = getDatabase();
-        const roomRef = ref(db, `rooms/${roomId}`);
+        const roomRef = ref(db, `rooms/${currentRoomId}`);
         const snapshot = await get(roomRef);
         const roomData = snapshot.val();
 
-        if (roomData && roomData.settings) {
-          const gridSize = getGridSize(roomData.settings);
-          const ships = getShipConfiguration(roomData.settings);
+        if (roomData) {
+          // Set room data for display logic
+          setRoomData(roomData);
           
-          setGridSize(gridSize);          setShips(ships);
-          setMaxShips(ships.length);
-          setGrid(createEmptyGrid(gridSize));
-          setCatalogQueue([...ships]);        } else {
-          // Use defaults if no settings
+          // Determine if current player is the host
+          if (currentPlayerId && roomData.hostId) {
+            setIsHost(currentPlayerId === roomData.hostId);
+          }
+
+          // Configure game settings
+          if (roomData.settings) {
+            const gridSize = getGridSize(roomData.settings);
+            const ships = getShipConfiguration(roomData.settings);
+            
+            setGridSize(gridSize);
+            setShips(ships);
+            setMaxShips(ships.length);
+            setGrid(createEmptyGrid(gridSize));
+            setCatalogQueue([...ships]);
+          } else {
+            // Use defaults if no settings
+            setGrid(createEmptyGrid(GRID_SIZE));
+            setCatalogQueue([...SHIPS]);
+          }
+        } else {
+          // Use defaults if no room data
           setGrid(createEmptyGrid(GRID_SIZE));
           setCatalogQueue([...SHIPS]);
         }
-      } catch (err) {
+      } catch (error) {
+        console.error('Error loading room settings:', error);
         // Use defaults if error
         setGrid(createEmptyGrid(GRID_SIZE));
         setCatalogQueue([...SHIPS]);
@@ -244,7 +268,7 @@ const ShipPlacement = ({ onComplete }) => {
     };
 
     loadRoomSettings();
-  }, [createEmptyGrid]);
+  }, [createEmptyGrid, GRID_SIZE, SHIPS]);
   const checkValidPlacement = useCallback((x, y, ship, vertical) => {
     if (!ship) return false;
     if (!grid || grid.length === 0) return false;
@@ -337,7 +361,7 @@ const ShipPlacement = ({ onComplete }) => {
     const newRotations = new Map();
     
     // Simple auto-placement logic
-    SHIPS.forEach((ship, index) => {
+    SHIPS.forEach((ship) => {
       let placed = false;
       const maxAttempts = 100;
       let attempts = 0;
@@ -645,9 +669,7 @@ const ShipPlacement = ({ onComplete }) => {
           Object.entries(parsedData.ships).forEach(([shipId, shipData]) => {
             newRotations.set(shipId, shipData.rotation || 0);
           });
-          setShipRotations(newRotations);        }
-
-      } catch (error) {
+          setShipRotations(newRotations);        }      } catch {
         // Error loading data from localStorage - continue with default state
       }
     }
@@ -707,9 +729,63 @@ const ShipPlacement = ({ onComplete }) => {
     };
   }, []);
 
+  // Add copy function for room ID
+  const handleCopyRoomId = async () => {
+    try {
+      await navigator.clipboard.writeText(roomId);
+      setCopySuccess(true);
+      setTimeout(() => setCopySuccess(false), 2000);    } catch {
+      // Fallback for older browsers
+      const textArea = document.createElement('textarea');
+      textArea.value = roomId;
+      document.body.appendChild(textArea);
+      textArea.select();
+      document.execCommand('copy');
+      document.body.removeChild(textArea);
+      setCopySuccess(true);
+      setTimeout(() => setCopySuccess(false), 2000);
+    }
+  };
+
   return (
     <DndProvider backend={DndBackend}>
-      <div className="flex flex-col items-center gap-6 sm:gap-8 p-4 sm:p-8 bg-gray-900/50 rounded-xl select-none touch-none">        <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 items-center">
+      <div className="flex flex-col items-center gap-6 sm:gap-8 p-4 sm:p-8 bg-gray-900/50 rounded-xl select-none touch-none">
+        {/* Room ID section for friendly games host */}
+        {isHost && roomData && roomData.gameMode === 'friendly' && roomId && (
+          <div className="bg-blue-900/50 border border-blue-600 rounded-lg p-4 text-center max-w-sm w-full">
+            <h3 className="text-white font-bold mb-2">Share Your Room Code</h3>
+            <div className="flex items-center gap-2 justify-center">
+              <span className="bg-gray-800 text-white px-4 py-2 rounded-lg font-mono text-lg">
+                {roomId}
+              </span>              <button
+                onClick={handleCopyRoomId}
+                className={`px-3 py-2 rounded-lg transition-all duration-200 flex items-center gap-1 ${
+                  copySuccess 
+                    ? 'bg-green-600 text-white' 
+                    : 'bg-blue-600 hover:bg-blue-700 text-white'
+                }`}
+                title="Copy room code"
+              >
+                {copySuccess ? (
+                  <>
+                    <FaCheck size={14} />
+                    Copied!
+                  </>
+                ) : (
+                  <>
+                    <FaCopy size={14} />
+                    Copy
+                  </>
+                )}
+              </button>
+            </div>
+            <p className="text-blue-200 text-sm mt-2">
+              Send this code to your friend to join the game
+            </p>
+          </div>
+        )}
+
+        <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 items-center">
           <h2 className="text-xl sm:text-2xl font-bold text-white">Place Your Ships</h2>
           <div className="text-sm text-gray-300">
             {placedShips.size}/{SHIPS.length} ships placed

@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { joinRoom } from '../services/gameService';
 import { findOrCreateRandomRoom, createFriendlyGame } from '../services/gameModesService';
-import { FaUser, FaGamepad, FaArrowRight, FaRandom, FaUsers, FaCog, FaUserSecret } from 'react-icons/fa';
+import { FaUser, FaGamepad, FaArrowRight, FaRandom, FaUsers } from 'react-icons/fa';
 import logo from '../assets/logo.png';
 import '../App.css';
 
@@ -356,30 +356,10 @@ const Home = () => {
               Friendly
             </button>
           </div>
-        </div>
-
-        {/* Game Mode Content */}
+        </div>        {/* Game Mode Content */}
         {renderGameModeContent()}
-
-        {/* Admin Access */}
-        <div className="mt-6 pt-4 border-t border-gray-600">
-          <div className="flex justify-center space-x-4">
-            <button
-              onClick={() => navigate('/admin-login')}
-              className="text-blue-400 hover:text-blue-300 text-xs flex items-center gap-1"
-            >
-              <FaUserSecret />
-              Admin
-            </button>
-            <button
-              onClick={() => navigate('/super-admin-login')}
-              className="text-yellow-400 hover:text-yellow-300 text-xs flex items-center gap-1"
-            >
-              <FaCog />
-              SuperAdmin
-            </button>
-          </div>
-        </div>
+        
+        {/* Admin access buttons removed - now accessed directly via URL */}
       </div>
     </div>
   );

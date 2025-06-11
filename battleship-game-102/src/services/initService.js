@@ -1,82 +1,22 @@
-import { createSuperAdmin } from './userService';
+// Import removed: we no longer create superadmin by default
 
-// Initialize default SuperAdmin account
+// Initialize function stub for backward compatibility
 export const initializeSuperAdmin = async () => {
-  try {
-    // Check if we need to create the default SuperAdmin
-    const defaultSuperAdmin = {
-      username: 'superadmin',
-      password: 'BattleshipMaster2024!',
-      displayName: 'System SuperAdmin'
-    };
-
-    await createSuperAdmin(
-      defaultSuperAdmin.username,
-      defaultSuperAdmin.password,      defaultSuperAdmin.displayName
-    );
-
-  } catch (error) {
-    // If error is about duplicate, that's fine - SuperAdmin already exists
-    if (!error.message.includes('already exists')) {
-      // Error initializing SuperAdmin
-    }
-  }
+  console.log('SuperAdmin initialization skipped - manual creation required');
+  return;
 };
 
-// Create some default admins for testing
-export const initializeDefaultAdmins = async (superAdminId) => {
-  try {
-    const { createAdmin } = await import('./userService');
-    
-    const defaultAdmins = [
-      {
-        username: 'testadmin1',
-        password: 'TestAdmin123!',
-        displayName: 'Test Admin 1',
-        permissions: { hostGames: true, customGames: true, manageGames: true }
-      },
-      {
-        username: 'testadmin2', 
-        password: 'TestAdmin456!',
-        displayName: 'Test Admin 2',
-        permissions: { hostGames: true, customGames: false, manageGames: true }
-      }
-    ];
-
-    for (const admin of defaultAdmins) {
-      try {
-        await createAdmin(
-          admin.username,
-          admin.password,
-          admin.displayName,
-          superAdminId,
-          admin.permissions
-        );      } catch (error) {
-        // Ignore if admin already exists
-        if (!error.message.includes('already exists')) {
-          // Error creating admin
-        }
-      }
-    }  } catch (error) {
-    // Error initializing default admins
-  }
+// Create admins function stub for backward compatibility
+export const initializeDefaultAdmins = async () => {
+  console.log('Default admins initialization skipped - manual creation required');
+  return;
 };
 
-// Combined initialization function
+// Combined initialization function - maintains API compatibility but does nothing
 export const initializeDefaults = async () => {
-  try {
-    // Initializing default accounts
-    
-    // First initialize SuperAdmin
-    await initializeSuperAdmin();
-    
-    // Then initialize default admins (we don't need the superAdminId for this simple version)
-    await initializeDefaultAdmins();
-    
-    // Default initialization completed
-  } catch (error) {
-    // Error during default initialization
-  }
+  // Skipping admin initialization as requested
+  console.log('Default admin initialization bypassed - manual creation required');
+  return;
 };
 
 // Export as object for compatibility

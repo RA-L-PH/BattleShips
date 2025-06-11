@@ -79,71 +79,71 @@
 
 /* Responsive styles for mobile devices */
 @media screen and (max-width: 640px) {
-  /* Game board optimizations - increase overall container size */
+  /* Game board optimizations - revert to smaller size for admin panels */
   .grid-container {
-    max-width: 98vw; /* Increased from 95vw for more space */
-    min-height: 50vh; /* Ensure minimum height for better touch targets */
+    max-width: 95vw; /* Reverted from 98vw */
+    min-height: 40vh; /* Reduced from 50vh */
     margin: 0 auto;
     overflow: visible;
-    padding: 0.5rem; /* Add padding for better spacing */
+    padding: 0.25rem; /* Reduced padding */
   }
   
-  /* Increase cell sizes for better haptics - 8x8 and smaller grids */
+  /* Revert cell sizes for better admin view - 8x8 and smaller grids */
   .grid-container .w-7,
   .grid-container .sm\:w-9,
   .grid-container .md\:w-11 {
-    width: 2.25rem !important; /* Increased from 1.5rem */
+    width: 1.5rem !important; /* Reverted from 2.25rem */
   }
   
   .grid-container .h-7,
   .grid-container .sm\:h-9,
   .grid-container .md\:h-11 {
-    height: 2.25rem !important; /* Increased from 1.5rem */
+    height: 1.5rem !important; /* Reverted from 2.25rem */
   }
   
   /* Medium cells for 10x10 grids */
   .grid-container .w-6,
   .grid-container .sm\:w-8,
   .grid-container .md\:w-10 {
-    width: 1.875rem !important; /* Increased from 1.25rem */
+    width: 1.25rem !important; /* Reverted from 1.875rem */
   }
   
   .grid-container .h-6,
   .grid-container .sm\:h-8,
   .grid-container .md\:h-10 {
-    height: 1.875rem !important; /* Increased from 1.25rem */
+    height: 1.25rem !important; /* Reverted from 1.875rem */
   }
   
   /* Smaller cells for 12x12 and larger grids */
   .grid-container .w-5,
   .grid-container .sm\:w-7,
   .grid-container .md\:w-9 {
-    width: 1.5rem !important; /* Increased from 1rem */
+    width: 1rem !important; /* Reverted from 1.5rem */
   }
     .grid-container .h-5,
   .grid-container .sm\:h-7,
   .grid-container .md\:h-9 {
-    height: 1.5rem !important; /* Increased from 1rem */
-  }
-  
-  /* Adjust font sizes for mobile - make them proportionally larger */
+    height: 1rem !important; /* Reverted from 1.5rem */
+  }  
+  /* Adjust font sizes for mobile - revert to smaller sizes */
   .grid-container .text-xl,
   .grid-container .sm\:text-2xl,
   .grid-container .md\:text-3xl {
-    font-size: 1rem !important; /* Increased from 0.875rem */
+    font-size: 0.875rem !important; /* Reverted from 1rem */
   }
   
-  /* Make labels larger for better visibility */
+  /* Make labels smaller for admin views */
   .grid-container .w-5,
   .grid-container .sm\:w-6,
   .grid-container .md\:w-8 {
-    width: 1.5rem !important; /* Increased from 1rem */    font-size: 0.875rem !important; /* Increased from 0.75rem */
+    width: 1rem !important; /* Reverted from 1.5rem */
+    font-size: 0.75rem !important; /* Reverted from 0.875rem */
   }
   
   .grid-container .h-5,
   .grid-container .sm\:h-6,
   .grid-container .md\:h-8 {
-    height: 1.5rem !important; /* Increased from 1rem */
+    height: 1rem !important; /* Reverted from 1.5rem */
   }
   
   /* Toast adjustments */
@@ -669,6 +669,59 @@
   }
 }
 
+/* Admin grid container specific styling */
+.admin-board-container {
+  transform: scale(0.8); /* Scale down admin boards for better overview */
+  transform-origin: center;
+}
+
+@media screen and (max-width: 640px) {
+  .admin-board-container {
+    transform: scale(0.7); /* Even smaller on mobile for admin */
+  }
+}
+
+@media screen and (min-width: 768px) {
+  .admin-board-container {
+    transform: scale(0.9); /* Slightly larger on tablets */
+  }
+}
+
+@media screen and (min-width: 1024px) {
+  .admin-board-container {
+    transform: scale(1); /* Full size on desktop */
+  }
+}
+
+/* Admin grid compact class for additional scaling */
+.admin-grid-compact .admin-board-container {
+  transform: scale(0.7); /* Further reduced scaling for more compact view */
+  transform-origin: center top;
+  margin: 0.25rem 0;
+}
+
+.admin-grid-compact .grid-container {
+  max-width: 85vw; /* Constrained width */
+  min-height: 28vh; /* Further reduced height */
+  padding: 0.125rem;
+  margin: 0 auto;
+}
+
+/* Make responsive for both mobile and desktop */
+@media screen and (min-width: 641px) {
+  .admin-grid-compact .grid-container .w-7,
+  .admin-grid-compact .grid-container .sm\:w-9,
+  .admin-grid-compact .grid-container .md\:w-11 {
+    width: 1.125rem !important; /* Reduced for desktop too */
+  }
+  
+  .admin-grid-compact .grid-container .h-7,
+  .admin-grid-compact .grid-container .sm\:h-9,
+  .admin-grid-compact .grid-container .md\:h-11 {
+    height: 1.125rem !important; /* Reduced for desktop too */
+  }
+}
+
 /* Utility classes for better component organization */
 
 /* Responsive container classes */
@@ -781,5 +834,84 @@
     justify-content: center;
     align-items: center;
     min-height: calc(100vh - 200px);
+  }
+}
+
+/* Admin panel specific grid optimizations */
+@media screen and (max-width: 640px) {
+  /* Override mobile grid sizes for admin panels */
+  .admin-grid .grid-container {
+    max-width: 85vw; /* Further reduced for admin view */
+    min-height: 30vh; /* Further reduced minimum height */
+    padding: 0.125rem; /* Smaller padding */
+    margin: 0 auto;
+  }
+  
+  /* Extra small cells specifically for admin views */
+  .admin-grid .grid-container .w-7,
+  .admin-grid .grid-container .sm\:w-9,
+  .admin-grid .grid-container .md\:w-11 {
+    width: 1rem !important; /* Much smaller for admin */
+  }
+  
+  .admin-grid .grid-container .h-7,
+  .admin-grid .grid-container .sm\:h-9,
+  .admin-grid .grid-container .md\:h-11 {
+    height: 1rem !important; /* Much smaller for admin */
+  }
+  
+  .admin-grid .grid-container .w-6,
+  .admin-grid .grid-container .sm\:w-8,
+  .admin-grid .grid-container .md\:w-10 {
+    width: 0.875rem !important; /* Further reduced */
+  }
+  
+  .admin-grid .grid-container .h-6,
+  .admin-grid .grid-container .sm\:h-8,
+  .admin-grid .grid-container .md\:h-10 {
+    height: 0.875rem !important; /* Further reduced */
+  }
+  
+  .admin-grid .grid-container .w-5,
+  .admin-grid .grid-container .sm\:w-7,
+  .admin-grid .grid-container .md\:w-9 {
+    width: 0.75rem !important; /* Further reduced */
+  }
+  
+  .admin-grid .grid-container .h-5,
+  .admin-grid .grid-container .sm\:h-7,
+  .admin-grid .grid-container .md\:h-9 {
+    height: 0.75rem !important; /* Further reduced */
+  }
+  
+  /* Reduce font size for grid labels and content in admin view */
+  .admin-grid .grid-container .text-xs,
+  .admin-grid .grid-container .text-sm,
+  .admin-grid .grid-container .text-base {
+    font-size: 0.65rem !important;
+  }
+}
+
+/* Admin grid container specific styling */
+.admin-board-container {
+  transform: scale(0.8); /* Scale down admin boards for better overview */
+  transform-origin: center;
+}
+
+@media screen and (max-width: 640px) {
+  .admin-board-container {
+    transform: scale(0.7); /* Even smaller on mobile for admin */
+  }
+}
+
+@media screen and (min-width: 768px) {
+  .admin-board-container {
+    transform: scale(0.9); /* Slightly larger on tablets */
+  }
+}
+
+@media screen and (min-width: 1024px) {
+  .admin-board-container {
+    transform: scale(1); /* Full size on desktop */
   }
 }

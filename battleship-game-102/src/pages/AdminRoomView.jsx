@@ -140,15 +140,17 @@ const AdminRoomView = () => {
       setError(err.message);
     }
   };
-
   // Helper function to get player grids
   const getPlayerGrids = () => {
     if (!room || !room.players) return [];
     
+    // Get the grid size from room settings
+    const gridSize = room.settings?.gridSize || 8;
+    
     return Object.entries(room.players).map(([playerId, playerData]) => ({
       playerId,
       name: playerData.name || playerId,
-      grid: playerData.PlacementData?.grid || Array(8).fill().map(() => Array(8).fill({ ship: null, hit: false, miss: false })),
+      grid: playerData.PlacementData?.grid || Array(gridSize).fill().map(() => Array(gridSize).fill({ ship: null, hit: false, miss: false })),
       ready: playerData.ready || false
     }));
   };
@@ -337,10 +339,9 @@ const AdminRoomView = () => {
           
           <div className="flex flex-col gap-8">
             <h2 className="text-2xl font-bold text-white">Player Boards</h2>
-            
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 admin-grid admin-grid-compact">
               {orderedPlayers.map((player, index) => (
-                <div key={player.playerId} className="bg-gray-700 p-4 rounded-lg">
+                <div key={player.playerId} className="bg-gray-700 p-3 rounded-lg">
                   <div className="flex justify-between items-center mb-4">
                     <h3 className="text-xl font-bold text-white">
                       {player.name} 
@@ -352,13 +353,14 @@ const AdminRoomView = () => {
                     >
                       {player.ready ? 'READY ✓' : 'NOT READY'}
                     </div>
-                  </div>
-                  <div className="flex justify-center">
-                    <div className="transform transition-all duration-300">
+                  </div>                  <div className="flex justify-center">
+                    <div className="admin-board-container admin-compact-board transform transition-all duration-300">
                       <GameBoard 
                         grid={player.grid}
+                        gridSize={room.settings?.gridSize || 8}
                         isPlayerGrid={true}
                         reversed={index === 0}
+                        adminView={true}
                       />
                     </div>
                   </div>
