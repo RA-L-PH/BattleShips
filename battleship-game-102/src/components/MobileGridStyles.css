@@ -1,0 +1,96 @@
+/* Mobile-specific grid styling for GameRoom_Mobile "My Waters" section */
+.mobile-grid-container {
+  /* Ensure proper flex layout */
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+}
+
+.mobile-grid-container .grid-container {
+  /* Center the grid and scale it up by 5% */
+  transform: scale(1.05);
+  transform-origin: center center;
+  
+  /* Ensure proper centering */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  
+  /* Remove default padding to maximize space */
+  padding: 0.5rem !important;
+  
+  /* Ensure it fits within the container */
+  max-width: 100%;
+  max-height: 100%;
+  width: auto;
+  height: auto;
+}
+
+/* Adjust grid cells for mobile view */
+.mobile-grid-container .grid-container .w-7,
+.mobile-grid-container .grid-container .sm\:w-9,
+.mobile-grid-container .grid-container .md\:w-11 {
+  width: 1.2rem !important;
+  height: 1.2rem !important;
+}
+
+/* Smaller grid cells for larger grids on mobile */
+.mobile-grid-container .grid-container .w-6,
+.mobile-grid-container .grid-container .sm\:w-8,
+.mobile-grid-container .grid-container .md\:w-10 {
+  width: 1rem !important;
+  height: 1rem !important;
+}
+
+.mobile-grid-container .grid-container .w-5,
+.mobile-grid-container .grid-container .sm\:w-7,
+.mobile-grid-container .grid-container .md\:w-9 {
+  width: 0.85rem !important;
+  height: 0.85rem !important;
+}
+
+/* Adjust row and column labels for mobile */
+.mobile-grid-container .grid-container .w-5.h-7,
+.mobile-grid-container .grid-container .sm\:w-6.sm\:h-9,
+.mobile-grid-container .grid-container .md\:w-8.md\:h-11 {
+  width: 1rem !important;
+  height: 1.2rem !important;
+  font-size: 0.7rem !important;
+}
+
+.mobile-grid-container .grid-container .w-7.h-5,
+.mobile-grid-container .grid-container .sm\:w-9.sm\:h-6,
+.mobile-grid-container .grid-container .md\:w-11.md\:h-8 {
+  width: 1.2rem !important;
+  height: 1rem !important;
+  font-size: 0.7rem !important;
+}
+
+/* Ensure proper spacing between grid and container edges */
+.mobile-grid-container .flex-1 {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.25rem;
+  overflow: hidden;
+}
+
+/* Responsive text sizing for mobile grid */
+.mobile-grid-container .grid-container .text-xl,
+.mobile-grid-container .grid-container .sm\:text-2xl,
+.mobile-grid-container .grid-container .md\:text-3xl {
+  font-size: 0.9rem !important;
+}
+
+/* Ensure borders are visible but not too thick on mobile */
+.mobile-grid-container .grid-container .border-2 {
+  border-width: 1px !important;
+}
+
+/* Center the ability text if present */
+.mobile-grid-container .grid-container .text-center {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}

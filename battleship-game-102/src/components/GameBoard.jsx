@@ -8,6 +8,11 @@ const GameBoard = ({
   activeAbility = null,
   reinforcementVertical = false,
   annihilateVertical = false,
+  // New ability orientation states
+  salvoVertical = false,
+  volleyFireVertical = false,
+  reconFlybyVertical = false,
+  torpedoVertical = false,
   hackerResult = null,
   playerData = {}, // Default to empty object to avoid errors
   gridSize = 8, // Support dynamic grid size
@@ -48,16 +53,6 @@ const GameBoard = ({
       return () => clearTimeout(timer);
     }
   }, [lastAttackedCell]);
-
-  // For admin view when board is rotated
-  const getRotatedLabel = (index, isCol) => {
-    if (!reversed) return isCol ? colLabels[index] : rowLabels[index];
-    
-    // When rotated -90 degrees, swap and adjust indices
-    if (isCol) return rowLabels[gridSize - 1 - index];
-    return colLabels[index];
-  };
-
   const isAffectedByAbility = (x, y) => {
     if (!activeAbility || !hoverCoords) return false;
     
@@ -107,6 +102,136 @@ const GameBoard = ({
                  hoverCoords.x > 0 && 
                  hoverCoords.x < gridSize - 1;
         }
+      
+      // Attack Abilities      case 'SALVO':
+        // 3 cells in a line (horizontal or vertical) 
+        if (salvoVertical) {
+          return x === hoverCoords.x && y >= hoverCoords.y && y < hoverCoords.y + 3;
+        } else {
+          return y === hoverCoords.y && x >= hoverCoords.x && x < hoverCoords.x + 3;
+        }
+      case 'PRECISION_STRIKE':
+        // Single cell (initial shot)
+        return x === hoverCoords.x && y === hoverCoords.y;      case 'VOLLEY_FIRE':
+        // 3 cells in a line (horizontal or vertical)
+        if (volleyFireVertical) {
+          return x === hoverCoords.x && y >= hoverCoords.y && y < hoverCoords.y + 3;
+        } else {
+          return y === hoverCoords.y && x >= hoverCoords.x && x < hoverCoords.x + 3;
+        }      case 'TORPEDO_RUN':
+        // Entire row or column
+        if (torpedoVertical) {
+          return x === hoverCoords.x; // Entire column
+        } else {
+          return y === hoverCoords.y; // Entire row
+        }
+      case 'DECOY_SHOT':
+        // Single cell
+        return x === hoverCoords.x && y === hoverCoords.y;
+      case 'BARRAGE':
+        // 5 individual cells (user selects them one by one)
+        return x === hoverCoords.x && y === hoverCoords.y;
+      case 'DEPTH_CHARGE':
+        // Initial cell + plus pattern if it hits
+        return (x === hoverCoords.x && y === hoverCoords.y) || 
+               (x === hoverCoords.x && Math.abs(y - hoverCoords.y) === 1) ||
+               (y === hoverCoords.y && Math.abs(x - hoverCoords.x) === 1);
+      case 'EMP_BLAST':
+        // 2x2 area
+        return x >= hoverCoords.x && x < hoverCoords.x + 2 && 
+               y >= hoverCoords.y && y < hoverCoords.y + 2;
+      case 'PINPOINT_STRIKE':
+        // Single cell
+        return x === hoverCoords.x && y === hoverCoords.y;
+      case 'CHAIN_REACTION':
+        // Single cell (initial shot)
+        return x === hoverCoords.x && y === hoverCoords.y;
+      
+      // Defense Abilities
+      case 'REPAIR_CREW':
+        // Single cell on player's own grid
+        return isPlayerGrid && x === hoverCoords.x && y === hoverCoords.y;
+      case 'CLOAK':
+        // Ship selection (varies by ship)
+        return isPlayerGrid && x === hoverCoords.x && y === hoverCoords.y;
+      case 'REINFORCE':
+        // Single cell on player's own grid
+        return isPlayerGrid && x === hoverCoords.x && y === hoverCoords.y;
+      case 'MINEFIELD':
+        // 2x2 area on player's own grid
+        return isPlayerGrid && x >= hoverCoords.x && x < hoverCoords.x + 2 && 
+               y >= hoverCoords.y && y < hoverCoords.y + 2;
+      case 'EVASIVE_MANEUVERS':
+        // No grid targeting (ship selection)
+        return false;
+      case 'EMERGENCY_PATCH':
+        // Single cell on player's own grid
+        return isPlayerGrid && x === hoverCoords.x && y === hoverCoords.y;
+      case 'SMOKE_SCREEN':
+        // 3x3 area on player's own grid
+        return isPlayerGrid && x >= hoverCoords.x && x < hoverCoords.x + 3 && 
+               y >= hoverCoords.y && y < hoverCoords.y + 3;
+      case 'DEFENSIVE_NET':
+        // 1x3 or 3x1 area on player's own grid
+        if (hoverCoords.defensiveNetVertical) {
+          return isPlayerGrid && x === hoverCoords.x && y >= hoverCoords.y && y < hoverCoords.y + 3;
+        } else {
+          return isPlayerGrid && y === hoverCoords.y && x >= hoverCoords.x && x < hoverCoords.x + 3;
+        }
+      case 'SONAR_DECOY':
+        // Single cell on player's own grid
+        return isPlayerGrid && x === hoverCoords.x && y === hoverCoords.y;
+      case 'BRACE_FOR_IMPACT':
+        // Ship selection (no grid targeting)
+        return false;
+      
+      // Support Abilities
+      case 'SONAR_PULSE':
+        // 3x3 area on opponent's grid
+        return !isPlayerGrid && x >= hoverCoords.x && x < hoverCoords.x + 3 && 
+               y >= hoverCoords.y && y < hoverCoords.y + 3;
+      case 'INTEL_LEAK':
+        // No grid targeting
+        return false;
+      case 'SPOTTER_PLANE':
+        // Cross pattern around target
+        return !isPlayerGrid && ((x === hoverCoords.x && Math.abs(y - hoverCoords.y) <= 2) ||
+               (y === hoverCoords.y && Math.abs(x - hoverCoords.x) <= 2));      case 'RECONNAISSANCE_FLYBY':
+        // 5x1 or 1x5 line on opponent's grid
+        if (reconFlybyVertical) {
+          return !isPlayerGrid && x === hoverCoords.x && y >= hoverCoords.y && y < hoverCoords.y + 5;
+        } else {
+          return !isPlayerGrid && y === hoverCoords.y && x >= hoverCoords.x && x < hoverCoords.x + 5;
+        }
+      case 'TARGET_ANALYSIS':
+        // 3x3 area around target
+        return !isPlayerGrid && x >= hoverCoords.x - 1 && x <= hoverCoords.x + 1 && 
+               y >= hoverCoords.y - 1 && y <= hoverCoords.y + 1;
+      case 'WEATHER_FORECAST':
+        // No grid targeting
+        return false;
+      case 'COMMUNICATIONS_INTERCEPT':
+        // No grid targeting
+        return false;
+      case 'TACTICAL_READOUT':
+        // No grid targeting
+        return false;
+      case 'JAMMING_SIGNAL':
+        // No grid targeting
+        return false;
+      case 'OPPONENTS_PLAYBOOK':
+        // No grid targeting
+        return false;
+      case 'HACKER':
+        // No grid targeting (reveals random ship)
+        return false;
+      case 'COUNTER':
+        // No grid targeting (defensive installation)
+        return false;
+      case 'JAM':
+        // No grid targeting (defensive installation)
+        return false;
+      
       default:
         // Single cell for other abilities
         return x === hoverCoords.x && y === hoverCoords.y;
@@ -185,8 +310,7 @@ const GameBoard = ({
             <div className="text-xs mt-1 opacity-80">{cell.attackLabel}</div>
           </div>
         );
-      }
-    } else if (isPlayerGrid && cell.ship) {
+      }    } else if (isPlayerGrid && cell.ship) {
       cellClass += "bg-green-500 border-green-700 animate-pulse-light"; // Show your ships in green with subtle animation
     } else if (isAffectedByAbility(x, y)) {
       // Visualize different abilities
@@ -206,6 +330,82 @@ const GameBoard = ({
         case 'GODS_HAND':
           cellClass += "bg-purple-700/60 animate-pulse-special";
           break;
+        
+        // Attack Abilities
+        case 'SALVO':
+          cellClass += "bg-red-400/60 animate-pulse-danger";
+          break;
+        case 'PRECISION_STRIKE':
+          cellClass += "bg-red-600/70 animate-pulse-danger";
+          break;
+        case 'VOLLEY_FIRE':
+          cellClass += "bg-red-500/60 animate-pulse-danger";
+          break;
+        case 'TORPEDO_RUN':
+          cellClass += "bg-cyan-500/60 animate-pulse-info";
+          break;
+        case 'DECOY_SHOT':
+          cellClass += "bg-pink-500/60 animate-pulse-danger";
+          break;
+        case 'BARRAGE':
+          cellClass += "bg-red-700/70 animate-pulse-danger";
+          break;
+        case 'DEPTH_CHARGE':
+          cellClass += "bg-orange-600/60 animate-pulse-danger";
+          break;
+        case 'EMP_BLAST':
+          cellClass += "bg-purple-600/60 animate-pulse-special";
+          break;
+        case 'PINPOINT_STRIKE':
+          cellClass += "bg-red-800/70 animate-pulse-danger";
+          break;
+        case 'CHAIN_REACTION':
+          cellClass += "bg-yellow-600/60 animate-pulse-danger";
+          break;
+        
+        // Defense Abilities
+        case 'REPAIR_CREW':
+          cellClass += "bg-green-400/60 animate-pulse-success";
+          break;
+        case 'CLOAK':
+          cellClass += "bg-indigo-500/60 animate-pulse-special";
+          break;
+        case 'REINFORCE':
+          cellClass += "bg-blue-500/60 animate-pulse-success";
+          break;
+        case 'MINEFIELD':
+          cellClass += "bg-orange-700/60 animate-pulse-danger";
+          break;
+        case 'EMERGENCY_PATCH':
+          cellClass += "bg-green-600/60 animate-pulse-success";
+          break;
+        case 'SMOKE_SCREEN':
+          cellClass += "bg-gray-500/60 animate-pulse";
+          break;
+        case 'DEFENSIVE_NET':
+          cellClass += "bg-blue-600/60 animate-pulse-success";
+          break;
+        case 'SONAR_DECOY':
+          cellClass += "bg-teal-500/60 animate-pulse-info";
+          break;
+        
+        // Support Abilities
+        case 'SONAR_PULSE':
+          cellClass += "bg-cyan-400/60 animate-pulse-info";
+          break;
+        case 'SPOTTER_PLANE':
+          cellClass += "bg-yellow-400/60 animate-pulse-info";
+          break;
+        case 'RECONNAISSANCE_FLYBY':
+          cellClass += "bg-blue-400/60 animate-pulse-info";
+          break;
+        case 'TARGET_ANALYSIS':
+          cellClass += "bg-amber-500/60 animate-pulse-info";
+          break;
+        case 'HACKER':
+          cellClass += "bg-green-500/60 animate-pulse-info";
+          break;
+        
         default:
           cellClass += "bg-purple-500/60 animate-pulse";
       }

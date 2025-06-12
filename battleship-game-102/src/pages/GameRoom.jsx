@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ref, onValue } from 'firebase/database';
+import { ref, onValue, update } from 'firebase/database';
 import { database } from '../services/firebaseConfig';
 import GameBoard from '../components/GameBoard';
 import AbilityPanel from '../components/AbilityPanel';
@@ -8,15 +8,54 @@ import GameStatus from '../components/GameStatus';
 import StopWatch from '../components/StopWatch';
 import Toast from '../components/Toast';
 import TurnTimer from '../components/TurnTimer';
-import { makeMove } from '../services/gameService';
+import GameRoom_Mobile from './GameRoom_Mobile';
+import GameRoom_Desktop from './GameRoom_Desktop';
+import { makeMove, recordTurnTimeout } from '../services/gameService';
 import { getGridSize } from '../services/gameService';
+import { isMobileDevice } from '../utils/deviceDetect';
 import { 
   activateNuke, 
   activateScanner, 
   activateHacker, 
   activateReinforcement, 
   activateAnnihilate,
-  activateCounterAttack
+  installCounter,
+  installJam,
+  // New Attack abilities
+  activateSalvo,
+  activatePrecisionStrike,
+  activatePrecisionStrikeFollowUp,
+  activateVolleyFire,
+  activateTorpedoRun,
+  activateTorpedoRunShot,
+  activateDecoyShot,
+  activateDecoyShotSecond,
+  activateBarrage,
+  activateDepthCharge,
+  activateEmpBlast,
+  activatePinpointStrike,
+  activateChainReaction,
+  activateChainReactionShot,  // New Defense abilities
+  activateRepairCrew,
+  activateReinforce,
+  activateMinefield,
+  activateEvasiveManeuvers,
+  activateEmergencyPatch,
+  activateSmokeScreen,
+  activateDefensiveNet,
+  activateSonarDecoy,
+  activateBraceForImpact,
+  // New Support abilities
+  activateSonarPulse,
+  activateIntelLeak,
+  activateSpotterPlane,
+  activateReconnaissanceFlyby,
+  activateTargetAnalysis,
+  activateWeatherForecast,
+  activateCommunicationsIntercept,
+  activateTacticalReadout,
+  activateJammingSignal,
+  activateOpponentsPlaybook
 } from '../services/abilityService';
 
 const GameRoom = () => {
@@ -27,16 +66,28 @@ const GameRoom = () => {
   const [playerName, setPlayerName] = useState('');
   const [opponentName, setOpponentName] = useState('');
   const [isMyTurn, setIsMyTurn] = useState(false);
-  const [playerAbilities, setPlayerAbilities] = useState({});
-  const [activeAbility, setActiveAbility] = useState(null);
+  const [playerAbilities, setPlayerAbilities] = useState({});  const [activeAbility, setActiveAbility] = useState(null);
   const [reinforcementVertical, setReinforcementVertical] = useState(false);
   const [annihilateVertical, setAnnihilateVertical] = useState(false);
-  const [scanResult, setScanResult] = useState(null);
+  
+  // New ability state variables
+  const [salvoVertical, setSalvoVertical] = useState(false);
+  const [volleyFireVertical, setVolleyFireVertical] = useState(false);
+  const [barrageTargets, setBarrageTargets] = useState([]);
+  const [barrageStep, setBarrageStep] = useState(0);
+  const [awaitingPrecisionFollowUp, setAwaitingPrecisionFollowUp] = useState(false);
+  const [awaitingTorpedoShot, setAwaitingTorpedoShot] = useState(false);
+  const [awaitingDecoySecond, setAwaitingDecoySecond] = useState(false);
+  const [awaitingChainReaction, setAwaitingChainReaction] = useState(false);
+  const [reconFlybyVertical, setReconFlybyVertical] = useState(false);const [scanResult, setScanResult] = useState(null);
   const [hackerResult, setHackerResult] = useState(null);
   const [toast, setToast] = useState(null);
   const [isPaused, setIsPaused] = useState(false);
   const [gridSize, setGridSize] = useState(8);
   const [turnTimeLimit, setTurnTimeLimit] = useState(60);
+
+  // Suppress unused variable warning for scanResult (used in ability system)
+  const _scanResult = scanResult;
 
   // Create initial empty grid based on dynamic size
   const createEmptyGrid = useCallback((size = 8) => Array(size).fill().map(() => 
@@ -178,17 +229,64 @@ const GameRoom = () => {
       // Get player's abilities
       if (data.players && data.players[playerId]?.abilities) {
         setPlayerAbilities(data.players[playerId].abilities);
-      }
-      
-      // Get scanner results if any
+      }      // Get scanner results if any
       if (data.players && data.players[playerId]?.scannerResult) {
-        setScanResult(data.players[playerId].scannerResult);
+        const newScanResult = data.players[playerId].scannerResult;
+        setScanResult(newScanResult);
+        
+        // Show toast notification for scanner result
+        if (newScanResult && newScanResult.timestamp > Date.now() - 5000) { // Only show if recent (within 5 seconds)
+          const colLabels = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'];
+          const rowLabels = ['8', '7', '6', '5', '4', '3', '2', '1'];
+          const coordinate = `${colLabels[newScanResult.col]}${rowLabels[newScanResult.row]}`;
+          setToast({ 
+            type: 'info', 
+            message: `SCANNER: Found ${newScanResult.shipCount} ship parts in 2x2 area starting at ${coordinate}` 
+          });
+          
+          // Clear the scanner result to prevent repeated notifications
+          setTimeout(() => {
+            update(ref(database, `rooms/${roomId}/players/${playerId}/scannerResult`), null);
+          }, 1000);
+        }
       }
       
       // Get hacker results if any
       if (data.players && data.players[playerId]?.hackerReveal) {
         setHackerResult(data.players[playerId].hackerReveal);
-      }      // Check for game over
+      }
+      
+      // Check for counter-attack feedback
+      if (data.players && data.players[playerId]?.counterHitResult) {
+        const counterResult = data.players[playerId].counterHitResult;
+        if (counterResult && counterResult.timestamp > Date.now() - 5000) { // Only show if recent
+          setToast({ 
+            type: 'success', 
+            message: `COUNTER activated! Hit ${counterResult.hitCount} enemy ship parts` 
+          });
+          
+          // Clear the counter result to prevent repeated notifications
+          setTimeout(() => {
+            update(ref(database, `rooms/${roomId}/players/${playerId}/counterHitResult`), null);
+          }, 1000);
+        }
+      }
+      
+      // Check if you were hit by a counter-attack
+      if (data.players && data.players[playerId]?.counterHitByOpponent) {
+        const counterHit = data.players[playerId].counterHitByOpponent;
+        if (counterHit && counterHit.timestamp > Date.now() - 5000) { // Only show if recent
+          setToast({ 
+            type: 'warning', 
+            message: `Enemy COUNTER hit ${counterHit.hitCount} of your ship parts!` 
+          });
+          
+          // Clear the counter hit notification to prevent repeated notifications
+          setTimeout(() => {
+            update(ref(database, `rooms/${roomId}/players/${playerId}/counterHitByOpponent`), null);
+          }, 1000);
+        }
+      }// Check for game over
       if (data.gameOver) {
         const winner = data.winner;
         const message = winner === playerId ? "🎉 You Won!" : "💀 You Lost!";
@@ -202,15 +300,25 @@ const GameRoom = () => {
     });
 
     return () => unsubscribe();
-  }, [roomId, playerId, navigate, gridSize, createEmptyGrid]);
-
-  const handleAbilityActivation = async (x, y, ability) => {
+  }, [roomId, playerId, navigate, gridSize, createEmptyGrid]);  const handleAbilityActivation = async (x, y, ability) => {
     try {
-      switch (ability) {        case 'NUKE':
-          await activateNuke(roomId, playerId, y, x);
+      let result;
+      switch (ability) {
+        case 'NUKE':
+          result = await activateNuke(roomId, playerId, y, x);
           break;
         case 'SCANNER':
-          await activateScanner(roomId, playerId, y, x);
+          result = await activateScanner(roomId, playerId, y, x);
+          if (result && result.shipCount !== undefined) {
+            const colLabels = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'];
+            const rowLabels = ['8', '7', '6', '5', '4', '3', '2', '1'];
+            const coordinate = `${colLabels[x]}${rowLabels[y]}`;
+            setToast({ 
+              type: 'info', 
+              message: `SCANNER: Found ${result.shipCount} ship parts in 2x2 area at ${coordinate}` 
+            });
+            return; // Don't show generic success message
+          }
           break;
         case 'HACKER':
           await activateHacker(roomId, playerId);
@@ -221,30 +329,342 @@ const GameRoom = () => {
         case 'ANNIHILATE':
           await activateAnnihilate(roomId, playerId, y, x, annihilateVertical);
           break;
-        case 'COUNTER':
-          await activateCounterAttack(roomId, playerId);
+        case 'COUNTER': {
+          await installCounter(roomId, playerId);
+          setToast({ type: 'success', message: 'COUNTER defense installed! Will activate when you take damage.' });
+          return; // Don't show generic success message
+        }
+        case 'JAM': {
+          await installJam(roomId, playerId);
+          setToast({ type: 'success', message: 'JAM defense installed! Will block the next enemy attack.' });
+          return; // Don't show generic success message
+        }
+          // New Attack Abilities
+        case 'SALVO':
+          result = await activateSalvo(roomId, playerId, y, x, salvoVertical);
           break;
+        case 'PRECISION_STRIKE':
+          result = await activatePrecisionStrike(roomId, playerId, y, x);
+          if (result && result.awaitingFollowUp) {
+            setAwaitingPrecisionFollowUp(true);
+            setToast({ type: 'info', message: 'Precision Strike hit! Select an adjacent square for follow-up shot.' });
+            return;
+          }
+          break;
+        case 'VOLLEY_FIRE':
+          result = await activateVolleyFire(roomId, playerId, y, x, volleyFireVertical);
+          break;
+        case 'TORPEDO_RUN':
+          result = await activateTorpedoRun(roomId, playerId, reconFlybyVertical, reconFlybyVertical ? y : x);
+          if (result && result.awaitingFreeShot) {
+            setAwaitingTorpedoShot(true);
+            setToast({ 
+              type: 'info', 
+              message: `Torpedo Run scan: ${result.hasShip ? 'Ships detected!' : 'No ships found'} Select target for free shot.` 
+            });
+            return;
+          }
+          break;
+        case 'DECOY_SHOT':
+          result = await activateDecoyShot(roomId, playerId, y, x);
+          if (result && result.awaitingSecondShot) {
+            setAwaitingDecoySecond(true);
+            setToast({ type: 'info', message: 'Decoy Shot missed! Select target for second shot.' });
+            return;
+          }
+          break;
+        case 'BARRAGE':
+          if (barrageStep < 5) {
+            const newTargets = [...barrageTargets, { row: y, col: x }];
+            setBarrageTargets(newTargets);
+            setBarrageStep(barrageStep + 1);
+            if (newTargets.length === 5) {
+              result = await activateBarrage(roomId, playerId, newTargets);
+              setBarrageTargets([]);
+              setBarrageStep(0);
+            } else {
+              setToast({ type: 'info', message: `Barrage target ${newTargets.length}/5 selected. Select ${5 - newTargets.length} more targets.` });
+              return;
+            }
+          }
+          break;
+        case 'DEPTH_CHARGE':
+          result = await activateDepthCharge(roomId, playerId, y, x);
+          break;
+        case 'EMP_BLAST':
+          result = await activateEmpBlast(roomId, playerId, y, x);
+          if (result && result.hasShipInArea) {
+            setToast({ type: 'success', message: 'EMP Blast hit ships! Enemy Support abilities disrupted next turn.' });
+            return;
+          }
+          break;
+        case 'PINPOINT_STRIKE':
+          result = await activatePinpointStrike(roomId, playerId, y, x);
+          if (result && result.damageDealt > 1) {
+            setToast({ type: 'success', message: `Pinpoint Strike hit for ${result.damageDealt} damage!` });
+            return;
+          }
+          break;        case 'CHAIN_REACTION':
+          result = await activateChainReaction(roomId, playerId, y, x);
+          if (result && result.awaitingFreeShot) {
+            setAwaitingChainReaction(true);
+            setToast({ type: 'success', message: 'Chain Reaction destroyed a segment! Select target for free shot.' });
+            return;
+          }
+          break;
+          
+        // New Defense Abilities  
+        case 'REPAIR_CREW':
+          result = await activateRepairCrew(roomId, playerId, y, x);
+          setToast({ type: 'success', message: 'Ship square repaired successfully!' });
+          return;
+        case 'CLOAK':
+          // CLOAK needs special handling for ship selection
+          setToast({ type: 'info', message: 'Select a ship to cloak from enemy abilities.' });
+          return;
+        case 'REINFORCE':
+          result = await activateReinforce(roomId, playerId, y, x);
+          setToast({ type: 'success', message: 'Square reinforced! Protected for next turn.' });
+          return;
+        case 'MINEFIELD':
+          result = await activateMinefield(roomId, playerId, y, x);
+          setToast({ type: 'success', message: 'Minefield deployed! 2x2 area will deal +1 damage.' });
+          return;
+          
+        // New Support Abilities
+        case 'SONAR_PULSE':
+          result = await activateSonarPulse(roomId, playerId, y, x);
+          if (result) {
+            setToast({ 
+              type: 'info', 
+              message: `Sonar Pulse: ${result.hasShip ? 'Ships detected' : 'No ships found'} in 3x3 area` 
+            });
+            return;
+          }
+          break;
+        case 'INTEL_LEAK':
+          result = await activateIntelLeak(roomId, playerId);
+          if (result) {
+            setToast({ 
+              type: 'info', 
+              message: `Intel Leak: Enemy ${result.shipName} is oriented ${result.orientation}` 
+            });
+            return;
+          }
+          break;
+        case 'SPOTTER_PLANE':
+          result = await activateSpotterPlane(roomId, playerId, y, x);
+          if (result) {
+            setToast({ 
+              type: 'info', 
+              message: `Spotter Plane: ${result.hasAdjacentShip ? 'Ship detected' : 'No ships'} adjacent to target` 
+            });
+            return;
+          }
+          break;        case 'RECONNAISSANCE_FLYBY':
+          result = await activateReconnaissanceFlyby(roomId, playerId, y, x, reconFlybyVertical);
+          if (result) {
+            setToast({ 
+              type: 'info', 
+              message: `Reconnaissance: ${result.uniqueShipCount} unique ships found in line` 
+            });
+            return;
+          }
+          break;
+        case 'TARGET_ANALYSIS':
+          result = await activateTargetAnalysis(roomId, playerId, y, x);
+          if (result) {
+            setToast({ 
+              type: 'info', 
+              message: `Target Analysis: Ship has ${result.currentHealth}/${result.totalHealth} health remaining` 
+            });
+            return;
+          }
+          break;
+        case 'WEATHER_FORECAST':
+          result = await activateWeatherForecast(roomId, playerId, y, x);
+          if (result) {
+            setToast({ 
+              type: 'info', 
+              message: `Weather Forecast: Next shot will ${result.willHit ? 'HIT' : 'MISS'}` 
+            });
+            return;
+          }
+          break;
+        case 'COMMUNICATIONS_INTERCEPT':
+          result = await activateCommunicationsIntercept(roomId, playerId);
+          if (result) {
+            setToast({ 
+              type: 'info', 
+              message: `Communications Intercept: ${result.infoResult}` 
+            });
+            return;
+          }          break;
+          
+        // Additional Defense Abilities
+        case 'EVASIVE_MANEUVERS':
+          result = await activateEvasiveManeuvers(roomId, playerId);
+          if (result) {
+            setToast({ 
+              type: 'success', 
+              message: 'Evasive Maneuvers activated! Next incoming attack has reduced accuracy.' 
+            });
+            return;
+          }
+          break;
+        case 'EMERGENCY_PATCH':
+          result = await activateEmergencyPatch(roomId, playerId, y, x);
+          if (result) {
+            setToast({ 
+              type: 'success', 
+              message: `Emergency Patch: Ship segment health increased by ${result.healthGained}!` 
+            });
+            return;
+          }
+          break;
+        case 'SMOKE_SCREEN':
+          result = await activateSmokeScreen(roomId, playerId, y, x);
+          if (result) {
+            setToast({ 
+              type: 'success', 
+              message: 'Smoke Screen deployed! 3x3 area obscured from enemy detection.' 
+            });
+            return;
+          }
+          break;
+        case 'DEFENSIVE_NET':
+          result = await activateDefensiveNet(roomId, playerId, y, x);
+          if (result) {
+            setToast({ 
+              type: 'success', 
+              message: 'Defensive Net deployed! Ships in area gain damage resistance.' 
+            });
+            return;
+          }
+          break;
+        case 'SONAR_DECOY':
+          result = await activateSonarDecoy(roomId, playerId, y, x);
+          if (result) {
+            setToast({ 
+              type: 'success', 
+              message: 'Sonar Decoy placed! Will confuse enemy detection abilities.' 
+            });
+            return;
+          }
+          break;
+        case 'BRACE_FOR_IMPACT':
+          result = await activateBraceForImpact(roomId, playerId);
+          if (result) {
+            setToast({ 
+              type: 'success', 
+              message: 'Brace for Impact! All ships gain temporary damage reduction.' 
+            });
+            return;
+          }
+          break;
+          
+        // Intelligence Gathering Abilities
+        case 'TACTICAL_READOUT':
+          result = await activateTacticalReadout(roomId, playerId);
+          if (result) {
+            setToast({ 
+              type: 'info', 
+              message: `Tactical Readout: Enemy's last ability was ${result.lastAbilityType || 'unknown'} type` 
+            });
+            return;
+          }
+          break;
+        case 'JAMMING_SIGNAL':
+          result = await activateJammingSignal(roomId, playerId);
+          if (result) {
+            setToast({ 
+              type: 'success', 
+              message: 'Jamming Signal active! Enemy Scanner/Hacker abilities disabled next turn.' 
+            });
+            return;
+          }
+          break;
+        case 'OPPONENTS_PLAYBOOK':
+          result = await activateOpponentsPlaybook(roomId, playerId);
+          if (result) {
+            setToast({ 
+              type: 'info', 
+              message: `Opponent's Playbook: Last offensive ability was ${result.lastOffensiveAbility || 'unknown'}` 
+            });
+            return;
+          }
+          break;
+          
         default:
           throw new Error('Invalid ability');
       }
       
-      setToast({ type: 'success', message: `Ability ${ability} activated!` });    } catch (error) {
+      setToast({ type: 'success', message: `Ability ${ability} activated!` });
+    } catch (error) {
       setToast({ type: 'error', message: error.message });
     } finally {
       setActiveAbility(null);
     }
   };
-
   const handleAttack = async (x, y) => {
     if (!isMyTurn || isPaused) return;
     
     try {
+      // Handle follow-up shots for multi-step abilities
+      if (awaitingPrecisionFollowUp) {
+        await activatePrecisionStrikeFollowUp(roomId, playerId, y, x);
+        setAwaitingPrecisionFollowUp(false);
+        setToast({ type: 'success', message: 'Precision Strike follow-up completed!' });
+        return;
+      }
+      
+      if (awaitingTorpedoShot) {
+        await activateTorpedoRunShot(roomId, playerId, y, x);
+        setAwaitingTorpedoShot(false);
+        setToast({ type: 'success', message: 'Torpedo Run free shot completed!' });
+        return;
+      }
+      
+      if (awaitingDecoySecond) {
+        await activateDecoyShotSecond(roomId, playerId, y, x);
+        setAwaitingDecoySecond(false);
+        setToast({ type: 'success', message: 'Decoy Shot second shot completed!' });
+        return;
+      }
+      
+      if (awaitingChainReaction) {
+        await activateChainReactionShot(roomId, playerId, y, x);
+        setAwaitingChainReaction(false);
+        setToast({ type: 'success', message: 'Chain Reaction free shot completed!' });
+        return;
+      }
+      
+      // Handle Barrage multi-target selection
+      if (activeAbility === 'BARRAGE' && barrageStep < 5) {
+        const newTargets = [...barrageTargets, { row: y, col: x }];
+        setBarrageTargets(newTargets);
+        setBarrageStep(barrageStep + 1);
+        
+        if (newTargets.length === 5) {
+          await activateBarrage(roomId, playerId, newTargets);
+          setBarrageTargets([]);
+          setBarrageStep(0);
+          setActiveAbility(null);
+          setToast({ type: 'success', message: 'Barrage attack completed!' });
+        } else {
+          setToast({ type: 'info', message: `Barrage target ${newTargets.length}/5 selected. Select ${5 - newTargets.length} more targets.` });
+        }
+        return;
+      }
+      
+      // Normal ability or attack handling
       if (activeAbility) {
         await handleAbilityActivation(x, y, activeAbility);
       } else {
         await makeMove(roomId, playerId, y, x);
         setToast({ type: 'info', message: `Attacked ${getCoordinateLabel(x, y)}` });
-      }    } catch (error) {
+      }
+    } catch (error) {
       setToast({ type: 'error', message: error.message });
     }
   };
@@ -281,9 +701,123 @@ const GameRoom = () => {
         <div className="text-white text-xl">Waiting for game to start...</div>
       </div>
     );
-  }
+  }  // Shared handlers for both mobile and desktop
+  
+  // Count remaining ships for game status
+  const playerShipsRemaining = countRemainingShips(playerGrid);
+  const opponentShipsRemaining = countRemainingShips(opponentGrid);
+
+  // Calculate ships hit and successful hits statistics
+  const calculateGameStats = () => {
+    // Count player's ships that have been hit (damaged ships)
+    const playerShipsHit = playerGrid ? playerGrid.flat().filter(cell => cell.ship && cell.hit).length : 0;
+    
+    // Count opponent's ships that have been hit (successful hits by player)
+    const opponentShipsHit = opponentGrid ? opponentGrid.flat().filter(cell => cell.ship && cell.hit).length : 0;
+    
+    // Count all successful hits made by player (hits on opponent grid)
+    const playerSuccessfulHits = opponentGrid ? opponentGrid.flat().filter(cell => cell.hit).length : 0;
+    
+    // Count all successful hits made by opponent (hits on player grid)
+    const opponentSuccessfulHits = playerGrid ? playerGrid.flat().filter(cell => cell.hit).length : 0;
+    
+    return {
+      playerShipsHit,
+      opponentShipsHit,
+      playerSuccessfulHits,
+      opponentSuccessfulHits
+    };
+  };
+
+  const { playerShipsHit, opponentShipsHit, playerSuccessfulHits, opponentSuccessfulHits } = calculateGameStats();
+
+  // Shared handlers for both mobile and desktop
+  const handleNavigateHome = () => navigate('/');
+  
+  const handleShareCode = () => {
+    navigator.clipboard.writeText(roomId);
+    setToast({ type: 'success', message: 'Room code copied!' });
+  };
+
+  // Handle turn timeout - switch turns instead of ending the game
+  const handleTimeUp = async () => {
+    if (!roomId || gameData?.gameOver || !playerId) return;
+    
+    try {
+      // Switch turns instead of ending the game
+      await recordTurnTimeout(roomId, playerId);
+      setToast({ type: 'warning', message: 'Turn time expired! Turn switched to opponent.' });
+    } catch (error) {
+      console.error('Error handling turn timeout:', error);
+      setToast({ type: 'error', message: 'Failed to handle turn timeout.' });
+    }
+  };
+
+  // Common props for both components
+  const commonProps = {
+    gameData,
+    roomId,
+    playerId,
+    playerName,
+    opponentName,
+    isMyTurn,
+    abilities: playerAbilities, // Fix prop name for GameRoom_Desktop
+    playerAbilities, // Keep this for GameRoom_Mobile compatibility
+    activeAbility,
+    reinforcementVertical,
+    annihilateVertical,
+    // New ability orientation states
+    salvoVertical,
+    volleyFireVertical,
+    reconFlybyVertical,
+    // Multi-step ability states
+    barrageTargets,
+    barrageStep,
+    awaitingPrecisionFollowUp,
+    awaitingTorpedoShot,
+    awaitingDecoySecond,
+    awaitingChainReaction,
+    hackerResult,
+    isPaused,
+    gridSize,
+    turnTimeLimit,
+    gameStartTime: gameData?.gameStartTime || gameData?.createdAt,
+    playerGrid,
+    opponentGrid,
+    playerShipsRemaining,
+    opponentShipsRemaining,
+    playerShipsHit,
+    opponentShipsHit,
+    playerSuccessfulHits,
+    opponentSuccessfulHits,
+    handleAttack,
+    onUseAbility: setActiveAbility, // Add missing ability handler
+    setActiveAbility,
+    setReinforcementVertical,
+    setAnnihilateVertical,
+    // New ability orientation setters
+    setSalvoVertical,
+    setVolleyFireVertical,
+    setReconFlybyVertical,
+    // Multi-step ability setters
+    setBarrageTargets,
+    setBarrageStep,
+    setAwaitingPrecisionFollowUp,
+    setAwaitingTorpedoShot,
+    setAwaitingDecoySecond,
+    setAwaitingChainReaction,    // Navigation and sharing handlers
+    handleNavigateHome,
+    handleShareCode,
+    onNavigateHome: handleNavigateHome, // For GameRoom_Mobile compatibility
+    onShareCode: handleShareCode, // For GameRoom_Mobile compatibility
+    // Turn timeout handler (different prop names for mobile vs desktop)
+    handleTimeUp,
+    onTimeUp: handleTimeUp, // For GameRoom_Mobile compatibility
+    onTurnTimeout: handleTimeUp, // For GameRoom_Desktop compatibility
+  };
+
   return (
-    <div className="min-h-screen bg-gray-900 text-white">
+    <>
       {toast && (
         <Toast 
           message={toast.message} 
@@ -291,130 +825,13 @@ const GameRoom = () => {
           onClose={() => setToast(null)} 
         />
       )}
-
-      {/* Compact status bar */}
-      <div className="game-status-bar px-2 sm:px-4 py-1 sm:py-2">
-        <GameStatus 
-          player={{ name: playerName, shipsRemaining: countRemainingShips(playerGrid) }}
-          opponent={{ name: opponentName, shipsRemaining: countRemainingShips(opponentGrid) }}
-        />
-      </div>      {/* Main game container with proper mobile spacing */}
-      <div className="flex flex-col items-center gap-2 sm:gap-4 p-2 sm:p-4">
-        {/* Game info and timer */}
-        <div className="flex flex-col sm:flex-row items-center gap-2 sm:gap-4 text-center">
-          <div className="flex items-center gap-2 text-xs sm:text-sm text-gray-300">
-            <span>Grid: {gridSize}x{gridSize}</span>
-            {gameData.gameMode && (
-              <>
-                <span>•</span>
-                <span className="capitalize">Mode: {gameData.gameMode}</span>
-              </>
-            )}
-            {gameData.gameMode === 'friendly' && (
-              <>
-                <span>•</span>
-                <span className="text-blue-400">Code: {roomId}</span>
-              </>
-            )}
-          </div>
-        </div>
-
-        {/* Turn Timer */}
-        {gameData.turnStartTime && !isPaused && (
-          <div className="w-full max-w-md">
-            <TurnTimer 
-              startTime={gameData.turnStartTime}
-              timeLimit={turnTimeLimit}
-              isMyTurn={isMyTurn}
-            />
-          </div>
-        )}
-
-        {/* Opponent's board - main focus */}
-        <div className="flex flex-col items-center w-full">
-          <h2 className="text-base sm:text-xl font-bold text-white mb-1 sm:mb-2 flex items-center gap-2">
-            <div className={`w-2 h-2 sm:w-3 sm:h-3 rounded-full ${isMyTurn ? 'bg-green-500 animate-pulse' : 'bg-gray-500'}`}></div>
-            <span className="truncate max-w-[200px] sm:max-w-none">{opponentName}'s Fleet</span>
-          </h2>
-          
-          {/* Mobile-optimized game board container */}
-          <div className="w-full flex justify-center">
-            <div className="max-w-[95vw] overflow-auto">
-              <GameBoard 
-                grid={opponentGrid}
-                gridSize={gridSize}
-                isPlayerGrid={false}
-                onCellClick={isMyTurn && !isPaused ? handleAttack : null}
-                activeAbility={activeAbility}
-                hackerResult={hackerResult}
-                annihilateVertical={annihilateVertical}
-              />
-            </div>
-          </div>
-        </div>
-
-        {/* Abilities Panel - Mobile optimized */}
-        {gameData.settings?.abilities !== false && (
-          <AbilityPanel 
-            abilities={playerAbilities}
-            onUseAbility={setActiveAbility}
-            activeAbility={activeAbility}
-            reinforcementVertical={reinforcementVertical}
-            onToggleReinforcementOrientation={() => setReinforcementVertical(!reinforcementVertical)}
-            annihilateVertical={annihilateVertical}
-            onToggleAnnihilateOrientation={() => setAnnihilateVertical(!annihilateVertical)}
-            isMyTurn={isMyTurn}
-          />
-        )}
-
-        {/* Player's own grid (compact for mobile) */}
-        <div className="flex flex-col items-center w-full mt-2 sm:mt-4">
-          <h3 className="text-sm sm:text-lg font-bold text-white mb-1 sm:mb-2">Your Fleet</h3>
-          <div className="transform scale-50 sm:scale-75 origin-center">
-            <GameBoard 
-              grid={playerGrid}
-              gridSize={gridSize}
-              isPlayerGrid={true}
-              activeAbility={activeAbility === 'REINFORCEMENT' ? 'REINFORCEMENT' : null}
-              onCellClick={activeAbility === 'REINFORCEMENT' ? handleAttack : null}
-              reinforcementVertical={reinforcementVertical}
-              playerData={gameData.players?.[playerId] || {}}
-            />
-          </div>
-        </div>
-
-        {/* Game controls - Mobile responsive */}
-        <div className="flex flex-col sm:flex-row gap-2 sm:gap-4 mt-2 sm:mt-4 w-full max-w-md">
-          {gameData?.gameOver ? (
-            <button
-              onClick={() => navigate('/')}
-              className="w-full px-4 py-2 sm:px-6 sm:py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 font-semibold text-sm sm:text-base"
-            >
-              Return to Home
-            </button>
-          ) : (
-            <button
-              onClick={() => navigate('/')}
-              className="w-full sm:w-auto px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700 text-sm sm:text-base"
-            >
-              Leave Game
-            </button>
-          )}
-          
-          {gameData.gameMode === 'friendly' && !gameData?.gameOver && (
-            <button
-              onClick={() => {
-                navigator.clipboard.writeText(roomId);
-                setToast({ type: 'success', message: 'Room code copied!' });
-              }}
-              className="w-full sm:w-auto px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 text-sm sm:text-base"
-            >
-              Share Code
-            </button>
-          )}
-        </div>
-      </div>
-    </div>
+      
+      {isMobileDevice() ? (
+        <GameRoom_Mobile {...commonProps} />
+      ) : (
+        <GameRoom_Desktop {...commonProps} />
+      )}
+    </>
   );
 };
 

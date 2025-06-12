@@ -1,3 +1,116 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/* Custom scrollbar styles for ability panel and other components */
+.scrollbar-thin {
+  scrollbar-width: thin;
+}
+
+.scrollbar-track-gray-700::-webkit-scrollbar-track {
+  background: rgb(55 65 81);
+  border-radius: 6px;
+}
+
+.scrollbar-thumb-gray-500::-webkit-scrollbar-thumb {
+  background: rgb(107 114 128);
+  border-radius: 6px;
+}
+
+.scrollbar-thumb-gray-500::-webkit-scrollbar-thumb:hover {
+  background: rgb(75 85 99);
+}
+
+.scrollbar-thin::-webkit-scrollbar {
+  height: 6px;
+}
+
+/* Custom scrollbar for desktop components */
+.custom-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: rgb(107 114 128) rgb(55 65 81);
+}
+
+/* Hide scrollbar for abilities panel while keeping scroll functionality */
+.scrollbar-hide {
+  -ms-overflow-style: none;  /* Internet Explorer 10+ */
+  scrollbar-width: none;  /* Firefox */
+}
+
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;  /* Safari and Chrome */
+  width: 0;
+  height: 0;
+}
+
+/* Custom gradient animations for enhanced UI */
+@keyframes shimmer {
+  0% {
+    background-position: -468px 0;
+  }
+  100% {
+    background-position: 468px 0;
+  }
+}
+
+.animate-shimmer {
+  animation: shimmer 2s linear infinite;
+  background: linear-gradient(
+    to right,
+    transparent 4%,
+    rgba(255, 255, 255, 0.05) 25%,
+    transparent 36%
+  );
+  background-size: 400% 100%;
+}
+
+/* Toast progress bar animation */
+@keyframes shrink {
+  from {
+    width: 100%;
+  }
+  to {
+    width: 0%;
+  }
+}
+
+/* Prevent double-tap zoom on mobile */
+.no-double-tap-zoom {
+  touch-action: manipulation;
+}
+
+/* Enhanced scrollbar hiding for abilities panel */
+.scrollbar-hide {
+  -ms-overflow-style: none;  /* Internet Explorer 10+ */
+  scrollbar-width: none;  /* Firefox */
+}
+
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;  /* Safari and Chrome */
+  width: 0;
+  height: 0;
+}
+
+/* Ensure proper overflow handling for game components */
+.game-container {
+  overflow: hidden;
+}
+
+.game-container * {
+  box-sizing: border-box;
+}
+
+/* Button hover effects enhancement */
+.btn-hover-lift {
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.btn-hover-lift:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+}
+
+.btn-hover-lift:active {
+  transform: translateY(0);
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+}

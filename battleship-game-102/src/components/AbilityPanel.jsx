@@ -9,7 +9,14 @@ const AbilityPanel = ({
   reinforcementVertical,
   onToggleReinforcementOrientation,
   annihilateVertical = false,
-  onToggleAnnihilateOrientation
+  onToggleAnnihilateOrientation,
+  // New ability orientations
+  salvoVertical = false,
+  onToggleSalvoOrientation,
+  volleyFireVertical = false,
+  onToggleVolleyFireOrientation,
+  reconFlybyVertical = false,
+  onToggleReconFlybyOrientation
 }) => {
   const [isPanelOpen, setIsPanelOpen] = useState(false);
   const [activeAbilities, setActiveAbilities] = useState([]);
@@ -112,9 +119,7 @@ const AbilityPanel = ({
               </span>
             </button>
           </div>
-        )}
-
-        {activeAbility && activeAbility === 'ANNIHILATE' && (
+        )}        {activeAbility && activeAbility === 'ANNIHILATE' && (
           <div className="mt-4 bg-gray-700 rounded p-3 animate-pulse">
             <div className="text-white mb-2 text-sm">Attack Direction:</div>
             <div className="flex gap-2 justify-center">
@@ -145,6 +150,72 @@ const AbilityPanel = ({
               {annihilateVertical 
                 ? "Hits target and 2 cells above" 
                 : "Hits center and cells on either side"}
+            </p>
+          </div>
+        )}
+
+        {/* Salvo Orientation Controls */}
+        {activeAbility && activeAbility === 'SALVO' && (
+          <div className="mt-4 bg-gray-700 rounded p-3 animate-pulse">
+            <div className="text-white mb-2 text-sm">Salvo Direction:</div>
+            <button 
+              onClick={() => {
+                if (onToggleSalvoOrientation) onToggleSalvoOrientation();
+              }}
+              className="px-4 py-2 bg-blue-600 rounded text-white flex items-center justify-center gap-2 w-full text-sm no-double-tap-zoom"
+              style={{ touchAction: 'manipulation' }}
+            >
+              <span>{salvoVertical ? "Vertical" : "Horizontal"}</span>
+              <span className="inline-block text-xs">
+                {salvoVertical ? "│\n│\n│" : "─ ─ ─"}
+              </span>
+            </button>
+            <p className="text-xs mt-1 text-gray-400">
+              {salvoVertical ? "Three shots downward" : "Three shots rightward"}
+            </p>
+          </div>
+        )}
+
+        {/* Volley Fire Orientation Controls */}
+        {activeAbility && activeAbility === 'VOLLEY_FIRE' && (
+          <div className="mt-4 bg-gray-700 rounded p-3 animate-pulse">
+            <div className="text-white mb-2 text-sm">Volley Fire Pattern:</div>
+            <button 
+              onClick={() => {
+                if (onToggleVolleyFireOrientation) onToggleVolleyFireOrientation();
+              }}
+              className="px-4 py-2 bg-blue-600 rounded text-white flex items-center justify-center gap-2 w-full text-sm no-double-tap-zoom"
+              style={{ touchAction: 'manipulation' }}
+            >
+              <span>{volleyFireVertical ? "3x1 Vertical" : "1x3 Horizontal"}</span>
+              <span className="inline-block text-xs">
+                {volleyFireVertical ? "│\n│\n│" : "─ ─ ─"}
+              </span>
+            </button>
+            <p className="text-xs mt-1 text-gray-400">
+              Simultaneous attack on 3 cells
+            </p>
+          </div>
+        )}
+
+        {/* Reconnaissance Flyby Orientation Controls */}
+        {activeAbility && activeAbility === 'RECONNAISSANCE_FLYBY' && (
+          <div className="mt-4 bg-gray-700 rounded p-3 animate-pulse">
+            <div className="text-white mb-2 text-sm">Flyby Direction:</div>
+            <button 
+              onClick={() => {
+                if (onToggleReconFlybyOrientation) onToggleReconFlybyOrientation();
+              }}
+              className="px-4 py-2 bg-blue-600 rounded text-white flex items-center justify-center gap-2 w-full text-sm no-double-tap-zoom"
+              style={{ touchAction: 'manipulation' }}
+            >
+              <span>{reconFlybyVertical ? "5x1 Vertical" : "1x5 Horizontal"}</span>
+              <span className="inline-block text-xs">
+                {reconFlybyVertical ? "│\n│\n│\n│\n│" : "─ ─ ─ ─ ─"}
+              </span>
+            </button>
+            <p className="text-xs mt-1 text-gray-400">
+              Count unique ships in 5-cell line
             </p>
           </div>
         )}

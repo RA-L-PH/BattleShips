@@ -9,6 +9,7 @@ import AdminRoomView from "./pages/AdminRoomView";
 import SuperAdminLogin from "./components/SuperAdminLogin";
 import SuperAdminPanel from "./pages/SuperAdminPanel";
 import RandomGameWaiting from "./pages/RandomGameWaiting";
+import GameGuide from "./pages/GameGuide";
 import { cleanupService } from "./services/cleanupService";
 
 const App = () => {  // Initialize the app on startup
@@ -51,9 +52,9 @@ const App = () => {  // Initialize the app on startup
         <Route path="/admin-login" element={<AdminLogin />} />
         <Route path="/admin" element={<AdminPanel />} />
         <Route path="/admin/room/:roomId" element={<AdminRoomView />} />
-        <Route path="/super-admin-login" element={<SuperAdminLogin />} />
-        <Route path="/super-admin" element={<SuperAdminPanel />} />
+        <Route path="/super-admin-login" element={<SuperAdminLogin />} />        <Route path="/super-admin" element={<SuperAdminPanel />} />
         <Route path="/random-game-waiting" element={<RandomGameWaiting />} />
+        <Route path="/game-guide" element={<GameGuide />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </div>

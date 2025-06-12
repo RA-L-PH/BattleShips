@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { joinRoom } from '../services/gameService';
 import { findOrCreateRandomRoom, createFriendlyGame } from '../services/gameModesService';
-import { FaUser, FaGamepad, FaArrowRight, FaRandom, FaUsers } from 'react-icons/fa';
+import { FaUser, FaGamepad, FaArrowRight, FaRandom, FaUsers, FaInfoCircle } from 'react-icons/fa';
 import logo from '../assets/logo.png';
 import '../App.css';
 
@@ -358,6 +358,17 @@ const Home = () => {
           </div>
         </div>        {/* Game Mode Content */}
         {renderGameModeContent()}
+        
+        {/* Game Guide Link */}
+        <div className="mt-6 pt-4 border-t border-gray-600">
+          <button
+            onClick={() => navigate('/game-guide')}
+            className="w-full py-2 bg-gray-700 text-white rounded-lg hover:bg-gray-600 transition-colors flex items-center justify-center gap-2"
+          >
+            <FaInfoCircle className="text-sm" />
+            <span className="text-sm">How to Play & Abilities Guide</span>
+          </button>
+        </div>
         
         {/* Admin access buttons removed - now accessed directly via URL */}
       </div>

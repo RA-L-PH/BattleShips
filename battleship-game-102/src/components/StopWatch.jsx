@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { ref, onValue, update, get } from 'firebase/database';
 import { database } from '../services/firebaseConfig';
 
-const Stopwatch = ({ gameOver, onTimeUp, isPaused }) => {
+const Stopwatch = ({ gameOver = false, onTimeUp = () => {}, isPaused = false }) => {
   const [timeLeft, setTimeLeft] = useState(15 * 60); // 15 minutes in seconds
   const timerRef = useRef(null);
   const roomId = localStorage.getItem('battleshipRoomId');
@@ -79,10 +79,9 @@ const Stopwatch = ({ gameOver, onTimeUp, isPaused }) => {
       }
     };
   }, [gameOver, isPaused, onTimeUp, roomId]);
-
   // Update pause state in Firebase
   useEffect(() => {
-    if (!roomId || gameOver) return;
+    if (!roomId || gameOver || isPaused === undefined) return;
     
     update(ref(database, `rooms/${roomId}/gameTimer`), {
       isPaused: isPaused

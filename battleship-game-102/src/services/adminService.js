@@ -66,16 +66,18 @@ export const startGame = async (roomId) => {
     };
     
     await update(roomRef, updates);
-    
-    // Grant random abilities to all players if abilities are enabled
-    if (room.settings?.abilities !== false) {
+      // Grant random abilities to all players if abilities are enabled
+    // Only grant random abilities for friendly and random games (exclude supervised/admin games)
+    if (room.settings?.abilities !== false && !room.admin && (room.gameMode === 'random' || room.gameMode === 'friendly')) {
       try {
         await grantRandomAbilitiesToAllPlayers(roomId);
-        console.log(`Random abilities granted to all players in room ${roomId}`);
+        console.log(`Random abilities granted to all players in room ${roomId} (${room.gameMode} game)`);
       } catch (abilityError) {
         console.error('Error granting random abilities:', abilityError);
         // Don't fail the game start if ability granting fails
       }
+    } else if (room.admin) {
+      console.log(`Skipping random ability granting for supervised game in room ${roomId} (admin: ${room.admin})`);
     }
     
     return true;

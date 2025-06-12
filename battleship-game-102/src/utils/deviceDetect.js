@@ -17,3 +17,21 @@ export const isMobileDevice = () => {
   const isSmallScreen = window.innerWidth < 1024;
   return isTouchDevice() && isSmallScreen;
 };
+
+// Specific method for ship placement component detection
+export const isShipPlacementMobile = () => {
+  // More comprehensive mobile detection for ship placement
+  const userAgent = navigator.userAgent || navigator.vendor || window.opera;
+  
+  // Check for mobile user agents
+  const isMobileUserAgent = /android|webos|iphone|ipad|ipod|blackberry|iemobile|opera mini/i.test(userAgent);
+  
+  // Check screen size
+  const isSmallScreen = window.innerWidth < 1024 || window.innerHeight < 600;
+  
+  // Check for touch capability
+  const hasTouchSupport = isTouchDevice();
+  
+  // Return true if it's likely a mobile device
+  return isMobileUserAgent || (hasTouchSupport && isSmallScreen);
+};

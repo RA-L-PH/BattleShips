@@ -107,9 +107,9 @@ export const makeMove = async (roomId, playerId, row, col) => {
   // Check for JAM protection
   if (checkJamProtection(room, opponentId)) {
     const updates = {};
-    
-    // Mark JAM as used after blocking this attack
+      // Mark JAM as used after blocking this attack
     updates[`/rooms/${roomId}/players/${opponentId}/abilities/JAM/used`] = true;
+    updates[`/rooms/${roomId}/players/${opponentId}/abilities/JAM/installed`] = false;
     
     // Record the jam event
     updates[`/rooms/${roomId}/moves/${Date.now()}`] = {
@@ -231,18 +231,19 @@ export const placeShips = async (roomId, playerId, grid) => {
       gameStarted: true,
       turnStartTime: Date.now(),
       currentTurn: Object.keys(room.players)[0]
-    });
-
-    // Grant random abilities to all players if abilities are enabled
-    if (room.settings?.abilities !== false) {
+    });    // Grant random abilities to all players if abilities are enabled
+    // Only grant random abilities for friendly and random games (exclude supervised/admin games)
+    if (room.settings?.abilities !== false && !room.admin && (room.gameMode === 'random' || room.gameMode === 'friendly')) {
       try {
         const { grantRandomAbilitiesToAllPlayers } = await import('./abilityService');
         await grantRandomAbilitiesToAllPlayers(roomId);
-        console.log(`Random abilities granted to all players in room ${roomId}`);
+        console.log(`Random abilities granted to all players in room ${roomId} (${room.gameMode} game)`);
       } catch (abilityError) {
         console.error('Error granting random abilities:', abilityError);
         // Don't fail the game start if ability granting fails
       }
+    } else if (room.admin) {
+      console.log(`Skipping random ability granting for supervised game in room ${roomId} (admin: ${room.admin})`);
     }
   }
 };
@@ -403,9 +404,9 @@ export const attack = async (roomId, attackerId, row, col, cellLabel = '') => {
   // Check if defender has JAM protection active
   if (checkJamProtection(room, defenderId)) {
     const updates = {};
-    
-    // Mark JAM as used after blocking this attack
+      // Mark JAM as used after blocking this attack
     updates[`/rooms/${roomId}/players/${defenderId}/abilities/JAM/used`] = true;
+    updates[`/rooms/${roomId}/players/${defenderId}/abilities/JAM/installed`] = false;
     
     // Record the jam event
     updates[`/rooms/${roomId}/moves/${Date.now()}`] = {
@@ -459,10 +460,9 @@ export const attack = async (roomId, attackerId, row, col, cellLabel = '') => {
   updates[`/rooms/${roomId}/currentTurn`] = defenderId;
   
   await update(ref(database), updates);
-  
-  // After successful attack, check if defender has COUNTER ability
+    // After successful attack, check if defender has COUNTER ability
   if (isHit) {
-    await checkForCounterAttack(roomId, attackerId, defenderId, row, col);
+    await checkForCounterAttack(roomId, attackerId, defenderId, row, col, 1, false);
   }
   
   return { success: true, isHit };
@@ -483,9 +483,9 @@ export const makeAttack = async (roomId, playerId, targetRow, targetCol) => {
   // Check if opponent has JAM protection active
   if (checkJamProtection(room, opponentId)) {
     const updates = {};
-    
-    // Mark JAM as used after blocking this attack
+      // Mark JAM as used after blocking this attack
     updates[`rooms/${roomId}/players/${opponentId}/abilities/JAM/used`] = true;
+    updates[`rooms/${roomId}/players/${opponentId}/abilities/JAM/installed`] = false;
     
     // Record the jam event
     updates[`rooms/${roomId}/moves/${Date.now()}`] = {
@@ -596,10 +596,9 @@ export const makeAttack = async (roomId, playerId, targetRow, targetCol) => {
   updates[`/rooms/${roomId}/moves/${Date.now()}`] = attackRecord;
   
   await update(ref(database), updates);
-  
-  // Check for counter attack after a successful hit
+    // Check for counter attack after a successful hit
   if (isHit) {
-    const counterAttackOccurred = await checkForCounterAttack(roomId, playerId, opponentId, targetRow, targetCol);
+    const counterAttackOccurred = await checkForCounterAttack(roomId, playerId, opponentId, targetRow, targetCol, 1, false);
     if (counterAttackOccurred) {
       // Counter attack already handled turn switching
       return { isHit, targetRow, targetCol, shipDestroyed, gameOver: allShipsDestroyed, counterAttack: true };

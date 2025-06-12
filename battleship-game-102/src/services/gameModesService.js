@@ -184,17 +184,16 @@ export const findRandomMatch = async (queueId, playerId) => {
           joinedAt: Date.now(),
           isHost: false
         }
-      },
-      gameStarted: false,
+      },      gameStarted: false,
       gameOver: false,
       settings: {
-        abilities: currentPlayerData.preferences.abilities && opponentData.preferences.abilities,
+        abilities: currentPlayerData.preferences.abilities !== false && opponentData.preferences.abilities !== false, // Both must explicitly disable
         gridSize: Math.min(currentPlayerData.preferences.gridSize, opponentData.preferences.gridSize),
         autoStart: true, // Random games auto-start when both players are ready
         turnTimeLimit: 60, // Default turn time limit
         maxShips: 5 // Default ship count
       }
-    };    await set(roomRef, room);
+    };await set(roomRef, room);
 
     // Update queue statuses for both players
     await updateDoc(doc(db, 'randomGameQueue', queueId), {
@@ -440,11 +439,10 @@ export const autoMatchPlayers = async () => {
               joinedAt: Date.now(),
               isHost: false
             }
-          },
-          gameStarted: false,
+          },          gameStarted: false,
           gameOver: false,
           settings: {
-            abilities: player1.preferences.abilities && player2.preferences.abilities,
+            abilities: player1.preferences.abilities !== false && player2.preferences.abilities !== false, // Both must explicitly disable
             gridSize: Math.min(player1.preferences.gridSize, player2.preferences.gridSize),
             autoStart: true,
             turnTimeLimit: 60,

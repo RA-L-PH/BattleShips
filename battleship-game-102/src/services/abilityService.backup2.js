@@ -292,65 +292,6 @@ export const grantAbility = async (roomId, playerId, abilityKey) => {
   }
 };
 
-// Grant random abilities to all players in a room (called during game start)
-export const grantRandomAbilitiesToAllPlayers = async (roomId) => {
-  try {
-    const roomRef = ref(database, `rooms/${roomId}`);
-    const snapshot = await get(roomRef);
-    const room = snapshot.val();
-
-    if (!room) throw new Error('Room not found');
-
-    const playerIds = Object.keys(room.players || {});
-    if (playerIds.length === 0) throw new Error('No players found in room');
-
-    // Get all easy abilities (excluding GODS_HAND which is admin-only)
-    const easyAbilities = Object.entries(ABILITIES)
-      .filter(([key, ability]) => ability.difficulty === 'easy' && key !== 'GODS_HAND')
-      .map(([key]) => key);
-
-    if (easyAbilities.length === 0) {
-      console.log('No easy abilities available to grant');
-      return;
-    }
-
-    const updates = {};    // Grant exactly 3 random abilities to each player
-    for (const playerId of playerIds) {
-      // Always grant exactly 3 abilities
-      const numAbilities = 3;
-      
-      // Randomly select abilities for this player
-      const shuffledAbilities = [...easyAbilities].sort(() => 0.5 - Math.random());
-      const selectedAbilities = shuffledAbilities.slice(0, Math.min(numAbilities, easyAbilities.length));
-
-      // Grant each selected ability
-      for (const abilityKey of selectedAbilities) {
-        const ability = ABILITIES[abilityKey];
-        const abilityData = {
-          active: true,
-          used: false,
-          difficulty: ability.difficulty,
-          grantedAt: Date.now(),
-          grantedRandomly: true // Flag to indicate this was granted randomly
-        };
-
-        updates[`rooms/${roomId}/players/${playerId}/abilities/${abilityKey}`] = abilityData;
-      }
-
-      console.log(`Granted ${selectedAbilities.length} random abilities to player ${playerId}: ${selectedAbilities.join(', ')}`);
-    }
-
-    // Apply all updates at once
-    await update(ref(database), updates);
-    
-    console.log(`Successfully granted random abilities to all players in room ${roomId}`);
-    return true;
-  } catch (error) {
-    console.error('Error granting random abilities to all players:', error);
-    throw error;
-  }
-};
-
 // Execute a nuke ability (X pattern - 5 cells)
 export const executeNuke = async (roomId, playerId, targetRow, targetCol) => {
   try {
@@ -373,13 +314,13 @@ export const executeNuke = async (roomId, playerId, targetRow, targetCol) => {
     
     const opponentGrid = room.players[opponentId].PlacementData?.grid;
     if (!opponentGrid) throw new Error('Opponent grid not found');
-      // Check if opponent has JAM protection
+    
+    // Check if opponent has JAM protection
     if (checkJamProtection(room, opponentId)) {
       const updates = {};
       
       // Mark JAM as used after blocking this attack
       updates[`rooms/${roomId}/players/${opponentId}/abilities/JAM/used`] = true;
-      updates[`rooms/${roomId}/players/${opponentId}/abilities/JAM/installed`] = false;
       
       // Mark the current ability as used even though it was blocked
       updates[`rooms/${roomId}/players/${playerId}/abilities/NUKE/used`] = true;
@@ -486,13 +427,14 @@ export const executeAnnihilate = async (roomId, playerId, targetRow, targetCol, 
     if (room.currentTurn !== playerId) throw new Error('Not your turn');
 
     const opponentId = Object.keys(room.players).find(id => id !== playerId);
-    const opponentGrid = room.players[opponentId].PlacementData?.grid;    // Check if opponent has JAM protection
+    const opponentGrid = room.players[opponentId].PlacementData?.grid;
+
+    // Check if opponent has JAM protection
     if (checkJamProtection(room, opponentId)) {
       const updates = {};
       
       // Mark JAM as used after blocking this attack
       updates[`rooms/${roomId}/players/${opponentId}/abilities/JAM/used`] = true;
-      updates[`rooms/${roomId}/players/${opponentId}/abilities/JAM/installed`] = false;
       
       // Mark the current ability as used even though it was blocked
       updates[`rooms/${roomId}/players/${playerId}/abilities/ANNIHILATE/used`] = true;
@@ -607,9 +549,9 @@ export const executeSalvo = async (roomId, playerId, targetRow, targetCol, isVer
     const opponentGrid = room.players[opponentId].PlacementData?.grid;
 
     // Check for JAM protection
-    if (checkJamProtection(room, opponentId)) {      const updates = {};
+    if (checkJamProtection(room, opponentId)) {
+      const updates = {};
       updates[`rooms/${roomId}/players/${opponentId}/abilities/JAM/used`] = true;
-      updates[`rooms/${roomId}/players/${opponentId}/abilities/JAM/installed`] = false;
       updates[`rooms/${roomId}/players/${playerId}/abilities/SALVO/used`] = true;
       updates[`rooms/${roomId}/currentTurn`] = opponentId;
       await update(ref(database), updates);
@@ -687,9 +629,9 @@ export const executePrecisionStrike = async (roomId, playerId, targetRow, target
     const opponentGrid = room.players[opponentId].PlacementData?.grid;
 
     // Check for JAM protection
-    if (checkJamProtection(room, opponentId)) {      const updates = {};
+    if (checkJamProtection(room, opponentId)) {
+      const updates = {};
       updates[`rooms/${roomId}/players/${opponentId}/abilities/JAM/used`] = true;
-      updates[`rooms/${roomId}/players/${opponentId}/abilities/JAM/installed`] = false;
       updates[`rooms/${roomId}/players/${playerId}/abilities/PRECISION_STRIKE/used`] = true;
       updates[`rooms/${roomId}/currentTurn`] = opponentId;
       await update(ref(database), updates);
@@ -1092,8 +1034,8 @@ export const executePinpointStrike = async (roomId, playerId, targetRow, targetC
 
     // Check for JAM protection
     if (checkJamProtection(room, opponentId)) {
-      const updates = {};      updates[`rooms/${roomId}/players/${opponentId}/abilities/JAM/used`] = true;
-      updates[`rooms/${roomId}/players/${opponentId}/abilities/JAM/installed`] = false;
+      const updates = {};
+      updates[`rooms/${roomId}/players/${opponentId}/abilities/JAM/used`] = true;
       updates[`rooms/${roomId}/players/${playerId}/abilities/PINPOINT_STRIKE/used`] = true;
       updates[`rooms/${roomId}/currentTurn`] = opponentId;
       await update(ref(database), updates);
@@ -1360,9 +1302,6 @@ export const executeRepairCrew = async (roomId, playerId, targetRow, targetCol) 
   }
 };
 
-// Export alias for backward compatibility
-export const activateRepairCrew = executeRepairCrew;
-
 export const executeCloak = async (roomId, playerId, shipId) => {
   try {
     const roomRef = ref(database, `rooms/${roomId}`);
@@ -1382,8 +1321,6 @@ export const executeCloak = async (roomId, playerId, shipId) => {
     if (!playerShips[shipId]) {
       throw new Error('Invalid ship selection for cloaking');
     }
-
-    const opponentId = Object.keys(room.players).find(id => id !== playerId);
 
     const updates = {};
     
@@ -1425,12 +1362,11 @@ export const executeReinforce = async (roomId, playerId, targetRow, targetCol) =
     if (room.currentTurn !== playerId) throw new Error('Not your turn');
 
     const playerGrid = room.players[playerId]?.PlacementData?.grid || {};
-    const playerAbilities = room.players[playerId]?.abilities || {};    if (!playerAbilities.REINFORCE?.active || playerAbilities.REINFORCE.used) {
+    const playerAbilities = room.players[playerId]?.abilities || {};
+
+    if (!playerAbilities.REINFORCE?.active || playerAbilities.REINFORCE.used) {
       throw new Error('Reinforce ability not available');
     }
-
-    const opponentId = Object.keys(room.players).find(id => id !== playerId);
-    if (!opponentId) throw new Error('Opponent not found');
 
     const targetCell = playerGrid[targetRow][targetCol];
     
@@ -1483,12 +1419,11 @@ export const executeEvasiveManeuvers = async (roomId, playerId, shipId1, shipId2
 
     if (!playerAbilities.EVASIVE_MANEUVERS?.active || playerAbilities.EVASIVE_MANEUVERS.used) {
       throw new Error('Evasive Maneuvers ability not available');
-    }    if (!playerShips[shipId1] || !playerShips[shipId2]) {
-      throw new Error('Invalid ship selection for evasive maneuvers');
     }
 
-    const opponentId = Object.keys(room.players).find(id => id !== playerId);
-    if (!opponentId) throw new Error('Opponent not found');
+    if (!playerShips[shipId1] || !playerShips[shipId2]) {
+      throw new Error('Invalid ship selection for evasive maneuvers');
+    }
 
     // Ensure ships are adjacent
     const ship1 = playerShips[shipId1];
@@ -1544,9 +1479,6 @@ export const executeMinefield = async (roomId, playerId, targetRow, targetCol) =
     if (!playerAbilities.MINEFIELD?.active || playerAbilities.MINEFIELD.used) {
       throw new Error('Minefield ability not available');
     }
-
-    const opponentId = Object.keys(room.players).find(id => id !== playerId);
-    if (!opponentId) throw new Error('Opponent not found');
 
     const updates = {};
     
@@ -1656,9 +1588,10 @@ export const executeEmergencyPatch = async (roomId, playerId, targetRow, targetC
 };
 
 // Helper function to get recent moves
-const getRecentMoves = (moves, count) => {  return Object.entries(moves || {})
+const getRecentMoves = (moves, count) => {
+  return Object.entries(moves || {})
     .sort((a, b) => b[0] - a[0]) // Sort by timestamp (descending)
-    .map(entry => entry[1])
+    .map(([_, move]) => move)
     .slice(0, count);
 };
 
@@ -1731,11 +1664,13 @@ export const executeSmokeScreen = async (roomId, playerId, targetRow, targetCol)
 export const executeDefensiveNet = async (roomId, playerId, targetRow, targetCol, isVertical = false) => {
   try {
     const roomRef = ref(database, `rooms/${roomId}`);
-    const snapshot = await get(roomRef);    const room = snapshot.val();
+    const snapshot = await get(roomRef);
+    const room = snapshot.val();
 
     if (!room || room.gameOver) throw new Error('Invalid room state');
     if (room.currentTurn !== playerId) throw new Error('Not your turn');
 
+    const playerGrid = room.players[playerId]?.PlacementData?.grid || {};
     const playerAbilities = room.players[playerId]?.abilities || {};
 
     if (!playerAbilities.DEFENSIVE_NET?.active || playerAbilities.DEFENSIVE_NET.used) {
@@ -1912,8 +1847,8 @@ export const executeBraceForImpact = async (roomId, playerId, shipId) => {
   }
 };
 
-// Execute Hacker ability (reveals one ship location)
-export const executeHacker = async (roomId, playerId) => {
+// Execute Sonar Pulse ability (scans a 3x3 area for ships)
+export const executeSonarPulse = async (roomId, playerId, targetRow, targetCol) => {
   try {
     const roomRef = ref(database, `rooms/${roomId}`);
     const snapshot = await get(roomRef);
@@ -1931,98 +1866,27 @@ export const executeHacker = async (roomId, playerId) => {
       throw new Error('Enemy EMP has disabled your support abilities this turn');
     }
 
-    if (!playerAbilities.HACKER?.active || playerAbilities.HACKER.used) {
-      throw new Error('Hacker ability not available');
+    if (!playerAbilities.SONAR_PULSE?.active || playerAbilities.SONAR_PULSE.used) {
+      throw new Error('Sonar Pulse ability not available');
     }
 
-    // Find all ship cells
-    const shipCells = [];
-    for (let r = 0; r < 8; r++) {
-      for (let c = 0; c < 8; c++) {
-        const cell = opponentGrid[r][c];
-        if (cell && cell.ship && !cell.hit) {
-          // Check if this is a cloaked ship
-          const isCloaked = room.players[opponentId]?.ships?.[cell.ship]?.cloaked > 0;
-          if (!isCloaked) {
-            shipCells.push({ row: r, col: c, shipId: cell.ship });
-          }
-        }
-      }
+    // Validate space for 3x3 area
+    if (targetRow + 2 >= 8 || targetCol + 2 >= 8) {
+      throw new Error('Not enough space for 3x3 sonar pulse');
     }
 
-    if (shipCells.length === 0) {
-      throw new Error('No valid ship targets found');
-    }
-
-    // Pick random ship cell to reveal
-    const randomIndex = Math.floor(Math.random() * shipCells.length);
-    const targetCell = shipCells[randomIndex];
-
-    const updates = {};
-    updates[`rooms/${roomId}/players/${playerId}/abilities/HACKER/used`] = true;
-    updates[`rooms/${roomId}/moves/${Date.now()}`] = {
-      type: 'ability',
-      name: 'HACKER',
-      playerId,
-      revealedRow: targetCell.row,
-      revealedCol: targetCell.col,
-      shipId: targetCell.shipId,
-      timestamp: Date.now()
-    };
-    updates[`rooms/${roomId}/currentTurn`] = opponentId;
-
-    await update(ref(database), updates);
-    
-    return { 
-      success: true,
-      revealedRow: targetCell.row,
-      revealedCol: targetCell.col,
-      shipId: targetCell.shipId,
-      message: `Hacker revealed enemy ship at ${getCoordinateLabel(targetCell.col, targetCell.row)}`
-    };
-  } catch (error) {
-    console.error('Error using Hacker ability:', error);
-    throw error;
-  }
-};
-
-// Execute Scanner ability (scans 2x2 area for ship count)
-export const executeScanner = async (roomId, playerId, targetRow, targetCol) => {
-  try {
-    const roomRef = ref(database, `rooms/${roomId}`);
-    const snapshot = await get(roomRef);
-    const room = snapshot.val();
-
-    if (!room || room.gameOver) throw new Error('Invalid room state');
-    if (room.currentTurn !== playerId) throw new Error('Not your turn');
-
-    const opponentId = Object.keys(room.players).find(id => id !== playerId);
-    const opponentGrid = room.players[opponentId]?.PlacementData?.grid || {};
-    const playerAbilities = room.players[playerId]?.abilities || {};
-
-    // Check if opponent has EMP disabled support abilities
-    if (room.players[opponentId]?.empDisabled > 0) {
-      throw new Error('Enemy EMP has disabled your support abilities this turn');
-    }
-
-    if (!playerAbilities.SCANNER?.active || playerAbilities.SCANNER.used) {
-      throw new Error('Scanner ability not available');
-    }
-
-    // Validate space for 2x2 area
-    if (targetRow + 1 >= 8 || targetCol + 1 >= 8) {
-      throw new Error('Not enough space for 2x2 scanner area');
-    }
-
-    // Count ship parts in 2x2 area
-    let shipCount = 0;
-    for (let r = targetRow; r < targetRow + 2; r++) {
-      for (let c = targetCol; c < targetCol + 2; c++) {
+    // Check for ships in 3x3 area
+    let hasShip = false;
+    for (let r = targetRow; r < targetRow + 3; r++) {
+      for (let c = targetCol; c < targetCol + 3; c++) {
+        // Skip if out of bounds
+        if (r < 0 || r >= 8 || c < 0 || c >= 8) continue;
+        
         // Check for sonar decoy in area
         const cellHasSonarDecoy = checkForSonarDecoy(room, opponentId, r, c);
         if (cellHasSonarDecoy) {
-          shipCount++; // False positive
-          continue;
+          hasShip = true; // False positive
+          break;
         }
         
         // Check for smoke screen in area
@@ -2033,516 +1897,22 @@ export const executeScanner = async (roomId, playerId, targetRow, targetCol) => 
         
         // Check for ships
         if (opponentGrid[r][c].ship) {
-          shipCount++;
-        }
-      }
-    }
-
-    const updates = {};
-    updates[`rooms/${roomId}/players/${playerId}/abilities/SCANNER/used`] = true;
-    updates[`rooms/${roomId}/moves/${Date.now()}`] = {
-      type: 'ability',
-      name: 'SCANNER',
-      playerId,
-      targetRow,
-      targetCol,
-      shipCount,
-      timestamp: Date.now()
-    };
-    updates[`rooms/${roomId}/currentTurn`] = opponentId;
-
-    await update(ref(database), updates);
-    
-    return { 
-      success: true,
-      shipCount,
-      message: `Scanner found ${shipCount} ship parts in 2x2 area`
-    };
-  } catch (error) {
-    console.error('Error using Scanner ability:', error);
-    throw error;
-  }
-};
-
-// Install Counter ability (defensive)
-export const installCounter = async (roomId, playerId) => {
-  try {
-    const roomRef = ref(database, `rooms/${roomId}`);
-    const snapshot = await get(roomRef);
-    const room = snapshot.val();
-
-    if (!room || room.gameOver) throw new Error('Invalid room state');
-    if (room.currentTurn !== playerId) throw new Error('Not your turn');
-
-    const playerAbilities = room.players[playerId]?.abilities || {};
-
-    if (!playerAbilities.COUNTER?.active || playerAbilities.COUNTER.used) {
-      throw new Error('Counter ability not available');
-    }
-
-    const opponentId = Object.keys(room.players).find(id => id !== playerId);
-
-    const updates = {};
-    updates[`rooms/${roomId}/players/${playerId}/abilities/COUNTER/installed`] = true;
-    updates[`rooms/${roomId}/players/${playerId}/abilities/COUNTER/used`] = true;
-    updates[`rooms/${roomId}/moves/${Date.now()}`] = {
-      type: 'ability',
-      name: 'COUNTER',
-      playerId,
-      timestamp: Date.now()
-    };
-    updates[`rooms/${roomId}/currentTurn`] = opponentId;
-
-    await update(ref(database), updates);
-    
-    return { 
-      success: true,
-      message: 'Counter defense installed! Will activate when you take damage.'
-    };
-  } catch (error) {
-    console.error('Error installing Counter ability:', error);
-    throw error;
-  }
-};
-
-// Install JAM ability (defensive)
-export const installJam = async (roomId, playerId) => {
-  try {
-    const roomRef = ref(database, `rooms/${roomId}`);
-    const snapshot = await get(roomRef);
-    const room = snapshot.val();
-
-    if (!room || room.gameOver) throw new Error('Invalid room state');
-    if (room.currentTurn !== playerId) throw new Error('Not your turn');
-
-    const playerAbilities = room.players[playerId]?.abilities || {};
-
-    if (!playerAbilities.JAM?.active || playerAbilities.JAM.used) {
-      throw new Error('JAM ability not available');
-    }
-
-    const opponentId = Object.keys(room.players).find(id => id !== playerId);    const updates = {};
-    updates[`rooms/${roomId}/players/${playerId}/abilities/JAM/installed`] = true;
-    updates[`rooms/${roomId}/players/${playerId}/abilities/JAM/used`] = false; // Only mark as used when it actually blocks an attack
-    updates[`rooms/${roomId}/moves/${Date.now()}`] = {
-      type: 'ability',
-      name: 'JAM',
-      playerId,
-      timestamp: Date.now()
-    };
-    updates[`rooms/${roomId}/currentTurn`] = opponentId;
-
-    await update(ref(database), updates);
-    
-    return { 
-      success: true,
-      message: 'JAM defense installed! Will block the next enemy attack.'
-    };
-  } catch (error) {
-    console.error('Error installing JAM ability:', error);
-    throw error;
-  }
-};
-
-// Execute Volley Fire ability (3x1 or 1x3 simultaneous attack)
-export const executeVolleyFire = async (roomId, playerId, targetRow, targetCol, isVertical = false) => {
-  try {
-    const roomRef = ref(database, `rooms/${roomId}`);
-    const snapshot = await get(roomRef);
-    const room = snapshot.val();
-
-    if (!room || room.gameOver) throw new Error('Invalid room state');
-    if (room.currentTurn !== playerId) throw new Error('Not your turn');
-
-    const playerAbilities = room.players[playerId]?.abilities || {};
-    if (!playerAbilities.VOLLEY_FIRE?.active || playerAbilities.VOLLEY_FIRE.used) {
-      throw new Error('Volley Fire ability not available');
-    }
-
-    const opponentId = Object.keys(room.players).find(id => id !== playerId);
-    const opponentGrid = room.players[opponentId].PlacementData?.grid;    // Check for JAM protection
-    if (checkJamProtection(room, opponentId)) {
-      const updates = {};
-      updates[`rooms/${roomId}/players/${opponentId}/abilities/JAM/used`] = true;
-      updates[`rooms/${roomId}/players/${opponentId}/abilities/JAM/installed`] = false;
-      updates[`rooms/${roomId}/players/${playerId}/abilities/VOLLEY_FIRE/used`] = true;
-      updates[`rooms/${roomId}/currentTurn`] = opponentId;
-      await update(ref(database), updates);
-      throw new Error('Your VOLLEY FIRE was jammed by opponent!');
-    }
-
-    const updates = {};
-    const hitCells = [];
-    let hitCount = 0;
-
-    // Fire three shots in a line
-    for (let i = 0; i < 3; i++) {
-      const row = isVertical ? targetRow + i : targetRow;
-      const col = isVertical ? targetCol : targetCol + i;
-
-      if (row >= 8 || col >= 8 || row < 0 || col < 0) continue;
-      if (opponentGrid[row][col].hit || opponentGrid[row][col].miss) continue;
-
-      const isHit = Boolean(opponentGrid[row][col].ship);
-      if (isHit) {
-        updates[`rooms/${roomId}/players/${opponentId}/PlacementData/grid/${row}/${col}/hit`] = true;
-        updates[`rooms/${roomId}/players/${opponentId}/PlacementData/grid/${row}/${col}/attackLabel`] = getCoordinateLabel(col, row);
-        
-        // Update ship hits
-        const shipId = opponentGrid[row][col].ship;
-        if (shipId) {
-          const currentHits = room.players[opponentId]?.ships?.[shipId]?.hits || 0;
-          updates[`rooms/${roomId}/players/${opponentId}/ships/${shipId}/hits`] = currentHits + 1;
-        }
-        hitCount++;
-      } else {
-        updates[`rooms/${roomId}/players/${opponentId}/PlacementData/grid/${row}/${col}/miss`] = true;
-        updates[`rooms/${roomId}/players/${opponentId}/PlacementData/grid/${row}/${col}/attackLabel`] = getCoordinateLabel(col, row);
-      }
-      hitCells.push({ row, col, isHit });
-    }
-
-    updates[`rooms/${roomId}/players/${playerId}/abilities/VOLLEY_FIRE/used`] = true;
-    updates[`rooms/${roomId}/moves/${Date.now()}`] = {
-      type: 'ability',
-      name: 'VOLLEY_FIRE',
-      playerId,
-      targetRow,
-      targetCol,
-      isVertical,
-      hitCount,
-      hitCells,
-      timestamp: Date.now()
-    };
-    updates[`rooms/${roomId}/currentTurn`] = opponentId;
-
-    await update(ref(database), updates);
-    
-    if (hitCount > 0) {
-      await checkForCounterAttack(roomId, playerId, opponentId, targetRow, targetCol, hitCount, false);
-    }
-    
-    return { success: true, hitCount, hitCells };
-  } catch (error) {
-    console.error('Error using Volley Fire ability:', error);
-    throw error;
-  }
-};
-
-// Execute Torpedo Run ability (scan entire row/column and get free shot)
-export const executeTorpedoRun = async (roomId, playerId, isVertical = false, lineIndex = 0) => {
-  try {
-    const roomRef = ref(database, `rooms/${roomId}`);
-    const snapshot = await get(roomRef);
-    const room = snapshot.val();
-
-    if (!room || room.gameOver) throw new Error('Invalid room state');
-    if (room.currentTurn !== playerId) throw new Error('Not your turn');
-
-    const playerAbilities = room.players[playerId]?.abilities || {};
-    if (!playerAbilities.TORPEDO_RUN?.active || playerAbilities.TORPEDO_RUN.used) {
-      throw new Error('Torpedo Run ability not available');
-    }
-
-    const opponentId = Object.keys(room.players).find(id => id !== playerId);
-    const opponentGrid = room.players[opponentId]?.PlacementData?.grid || {};
-
-    // Scan entire row or column for ships
-    let hasShip = false;
-    const scannedCells = [];
-    
-    for (let i = 0; i < 8; i++) {
-      const row = isVertical ? i : lineIndex;
-      const col = isVertical ? lineIndex : i;
-      
-      scannedCells.push({ row, col });
-      
-      if (opponentGrid[row][col].ship) {
-        // Check if this is a cloaked ship
-        const isCloaked = room.players[opponentId]?.ships?.[opponentGrid[row][col].ship]?.cloaked > 0;
-        if (!isCloaked) {
           hasShip = true;
+          break;
         }
       }
+      if (hasShip) break;
     }
 
     const updates = {};
-    updates[`rooms/${roomId}/players/${playerId}/abilities/TORPEDO_RUN/used`] = true;
-    updates[`rooms/${roomId}/players/${playerId}/awaitingTorpedoShot`] = true;
-    updates[`rooms/${roomId}/moves/${Date.now()}`] = {
-      type: 'ability',
-      name: 'TORPEDO_RUN',
-      playerId,
-      isVertical,
-      lineIndex,
-      hasShip,
-      scannedCells,
-      timestamp: Date.now()
-    };
-    // Don't switch turns yet - waiting for free shot
-
-    await update(ref(database), updates);
-    
-    return { 
-      success: true,
-      hasShip,
-      awaitingFreeShot: true,
-      message: `Torpedo Run scan: ${hasShip ? 'Ships detected!' : 'No ships found'} Select target for free shot.`
-    };
-  } catch (error) {
-    console.error('Error using Torpedo Run ability:', error);
-    throw error;
-  }
-};
-
-// Execute Torpedo Run Shot (follow-up shot)
-export const executeTorpedoRunShot = async (roomId, playerId, targetRow, targetCol) => {
-  try {
-    const roomRef = ref(database, `rooms/${roomId}`);
-    const snapshot = await get(roomRef);
-    const room = snapshot.val();
-
-    if (!room || room.gameOver) throw new Error('Invalid room state');
-    if (!room.players[playerId]?.awaitingTorpedoShot) throw new Error('No torpedo shot pending');
-
-    const opponentId = Object.keys(room.players).find(id => id !== playerId);
-    const opponentGrid = room.players[opponentId]?.PlacementData?.grid || {};
-
-    const targetCell = opponentGrid[targetRow][targetCol];
-    
-    if (targetCell.hit || targetCell.miss) {
-      throw new Error('Cell already targeted');
-    }
-
-    const isHit = Boolean(targetCell.ship);
-    const updates = {};
-
-    if (isHit) {
-      updates[`rooms/${roomId}/players/${opponentId}/PlacementData/grid/${targetRow}/${targetCol}/hit`] = true;
-      updates[`rooms/${roomId}/players/${opponentId}/PlacementData/grid/${targetRow}/${targetCol}/attackLabel`] = getCoordinateLabel(targetCol, targetRow);
-      
-      // Update ship hits
-      const shipId = targetCell.ship;
-      if (shipId) {
-        const currentHits = room.players[opponentId]?.ships?.[shipId]?.hits || 0;
-        updates[`rooms/${roomId}/players/${opponentId}/ships/${shipId}/hits`] = currentHits + 1;
-      }
-    } else {
-      updates[`rooms/${roomId}/players/${opponentId}/PlacementData/grid/${targetRow}/${targetCol}/miss`] = true;
-      updates[`rooms/${roomId}/players/${opponentId}/PlacementData/grid/${targetRow}/${targetCol}/attackLabel`] = getCoordinateLabel(targetCol, targetRow);
-    }
-
-    // Clear torpedo shot state
-    updates[`rooms/${roomId}/players/${playerId}/awaitingTorpedoShot`] = null;
-    
-    updates[`rooms/${roomId}/moves/${Date.now()}`] = {
-      type: 'torpedo_run_shot',
-      playerId,
-      targetRow,
-      targetCol,
-      isHit,
-      timestamp: Date.now()
-    };
-    
-    updates[`rooms/${roomId}/currentTurn`] = opponentId;
-
-    await update(ref(database), updates);
-    
-    if (isHit) {
-      await checkForCounterAttack(roomId, playerId, opponentId, targetRow, targetCol, 1, false);
-    }
-    
-    return { success: true, isHit };
-  } catch (error) {
-    console.error('Error using Torpedo Run shot:', error);
-    throw error;
-  }
-};
-
-// Execute Decoy Shot ability (if miss, get second shot)
-export const executeDecoyShot = async (roomId, playerId, targetRow, targetCol) => {
-  try {
-    const roomRef = ref(database, `rooms/${roomId}`);
-    const snapshot = await get(roomRef);
-    const room = snapshot.val();
-
-    if (!room || room.gameOver) throw new Error('Invalid room state');
-    if (room.currentTurn !== playerId) throw new Error('Not your turn');
-
-    const playerAbilities = room.players[playerId]?.abilities || {};
-    if (!playerAbilities.DECOY_SHOT?.active || playerAbilities.DECOY_SHOT.used) {
-      throw new Error('Decoy Shot ability not available');
-    }
-
-    const opponentId = Object.keys(room.players).find(id => id !== playerId);
-    const opponentGrid = room.players[opponentId].PlacementData?.grid;    // Check for JAM protection
-    if (checkJamProtection(room, opponentId)) {
-      const updates = {};
-      updates[`rooms/${roomId}/players/${opponentId}/abilities/JAM/used`] = true;
-      updates[`rooms/${roomId}/players/${opponentId}/abilities/JAM/installed`] = false;
-      updates[`rooms/${roomId}/players/${playerId}/abilities/DECOY_SHOT/used`] = true;
-      updates[`rooms/${roomId}/currentTurn`] = opponentId;
-      await update(ref(database), updates);
-      throw new Error('Your DECOY SHOT was jammed by opponent!');
-    }
-
-    const targetCell = opponentGrid[targetRow][targetCol];
-    
-    if (targetCell.hit || targetCell.miss) {
-      throw new Error('Cell already targeted');
-    }
-
-    const isHit = Boolean(targetCell.ship);
-    const updates = {};
-
-    if (isHit) {
-      updates[`rooms/${roomId}/players/${opponentId}/PlacementData/grid/${targetRow}/${targetCol}/hit`] = true;
-      updates[`rooms/${roomId}/players/${opponentId}/PlacementData/grid/${targetRow}/${targetCol}/attackLabel`] = getCoordinateLabel(targetCol, targetRow);
-      
-      // Update ship hits
-      const shipId = targetCell.ship;
-      if (shipId) {
-        const currentHits = room.players[opponentId]?.ships?.[shipId]?.hits || 0;
-        updates[`rooms/${roomId}/players/${opponentId}/ships/${shipId}/hits`] = currentHits + 1;
-      }
-      
-      // Hit - ability ends, switch turns
-      updates[`rooms/${roomId}/currentTurn`] = opponentId;
-    } else {
-      updates[`rooms/${roomId}/players/${opponentId}/PlacementData/grid/${targetRow}/${targetCol}/miss`] = true;
-      updates[`rooms/${roomId}/players/${opponentId}/PlacementData/grid/${targetRow}/${targetCol}/attackLabel`] = getCoordinateLabel(targetCol, targetRow);
-      
-      // Miss - get second shot
-      updates[`rooms/${roomId}/players/${playerId}/awaitingDecoySecond`] = true;
-      // Don't switch turns yet
-    }
-
-    updates[`rooms/${roomId}/players/${playerId}/abilities/DECOY_SHOT/used`] = true;
-    updates[`rooms/${roomId}/moves/${Date.now()}`] = {
-      type: 'ability',
-      name: 'DECOY_SHOT',
-      playerId,
-      targetRow,
-      targetCol,
-      isHit,
-      awaitingSecondShot: !isHit,
-      timestamp: Date.now()
-    };
-
-    await update(ref(database), updates);
-    
-    if (isHit) {
-      await checkForCounterAttack(roomId, playerId, opponentId, targetRow, targetCol, 1, false);
-    }
-    
-    return { 
-      success: true, 
-      isHit,
-      awaitingSecondShot: !isHit,
-      message: isHit ? 'Decoy Shot hit!' : 'Decoy Shot missed! Select target for second shot.'
-    };
-  } catch (error) {
-    console.error('Error using Decoy Shot ability:', error);
-    throw error;
-  }
-};
-
-// Execute Decoy Shot Second (follow-up shot)
-export const executeDecoyShotSecond = async (roomId, playerId, targetRow, targetCol) => {
-  try {
-    const roomRef = ref(database, `rooms/${roomId}`);
-    const snapshot = await get(roomRef);
-    const room = snapshot.val();
-
-    if (!room || room.gameOver) throw new Error('Invalid room state');
-    if (!room.players[playerId]?.awaitingDecoySecond) throw new Error('No decoy second shot pending');
-
-    const opponentId = Object.keys(room.players).find(id => id !== playerId);
-    const opponentGrid = room.players[opponentId]?.PlacementData?.grid || {};
-
-    const targetCell = opponentGrid[targetRow][targetCol];
-    
-    if (targetCell.hit || targetCell.miss) {
-      throw new Error('Cell already targeted');
-    }
-
-    const isHit = Boolean(targetCell.ship);
-    const updates = {};
-
-    if (isHit) {
-      updates[`rooms/${roomId}/players/${opponentId}/PlacementData/grid/${targetRow}/${targetCol}/hit`] = true;
-      updates[`rooms/${roomId}/players/${opponentId}/PlacementData/grid/${targetRow}/${targetCol}/attackLabel`] = getCoordinateLabel(targetCol, targetRow);
-    } else {
-      updates[`rooms/${roomId}/players/${opponentId}/PlacementData/grid/${targetRow}/${targetCol}/miss`] = true;
-      updates[`rooms/${roomId}/players/${opponentId}/PlacementData/grid/${targetRow}/${targetCol}/attackLabel`] = getCoordinateLabel(targetCol, targetRow);
-    }
-
-    // Clear decoy second shot state
-    updates[`rooms/${roomId}/players/${playerId}/awaitingDecoySecond`] = null;
-    
-    updates[`rooms/${roomId}/moves/${Date.now()}`] = {
-      type: 'decoy_shot_second',
-      playerId,
-      targetRow,
-      targetCol,
-      isHit,
-      timestamp: Date.now()
-    };
-    
-    updates[`rooms/${roomId}/currentTurn`] = opponentId;
-
-    await update(ref(database), updates);
-    
-    if (isHit) {
-      await checkForCounterAttack(roomId, playerId, opponentId, targetRow, targetCol, 1, false);
-    }
-    
-    return { success: true, isHit };
-  } catch (error) {
-    console.error('Error using Decoy Shot second shot:', error);
-    throw error;
-  }
-};
-
-// Execute functions for intelligence and reconnaissance abilities
-export const executeSonarPulse = async (roomId, playerId, targetRow, targetCol) => {
-  try {
-    const roomRef = ref(database, `rooms/${roomId}`);
-    const snapshot = await get(roomRef);
-    const room = snapshot.val();
-
-    if (!room || room.gameOver) throw new Error('Invalid room state');
-    if (room.currentTurn !== playerId) throw new Error('Not your turn');
-
-    const playerAbilities = room.players[playerId]?.abilities || {};
-    if (!playerAbilities.sonarPulse?.active || playerAbilities.sonarPulse.used) {
-      throw new Error('Sonar Pulse ability not available');
-    }
-
-    const opponentId = Object.keys(room.players).find(id => id !== playerId);
-    const opponentGrid = room.players[opponentId].PlacementData?.grid;
-
-    // Sonar pulse reveals ships in a 5x5 area
-    const sonarResults = [];
-    for (let r = targetRow - 2; r <= targetRow + 2; r++) {
-      for (let c = targetCol - 2; c <= targetCol + 2; c++) {
-        if (r >= 0 && r < opponentGrid.length && c >= 0 && c < opponentGrid[0].length) {
-          if (opponentGrid[r][c].ship) {
-            sonarResults.push({ row: r, col: c });
-          }
-        }
-      }
-    }
-
-    const updates = {};
-    updates[`rooms/${roomId}/players/${playerId}/abilities/sonarPulse/used`] = true;
+    updates[`rooms/${roomId}/players/${playerId}/abilities/SONAR_PULSE/used`] = true;
     updates[`rooms/${roomId}/moves/${Date.now()}`] = {
       type: 'ability',
       name: 'SONAR_PULSE',
       playerId,
       targetRow,
       targetCol,
-      shipsDetected: sonarResults.length,
+      hasShip,
       timestamp: Date.now()
     };
     updates[`rooms/${roomId}/currentTurn`] = opponentId;
@@ -2551,8 +1921,8 @@ export const executeSonarPulse = async (roomId, playerId, targetRow, targetCol) 
     
     return { 
       success: true,
-      shipsDetected: sonarResults.length,
-      message: `Sonar pulse detected ${sonarResults.length} ships in the area!`
+      hasShip,
+      message: hasShip ? 'Sonar Pulse detected ships in the area!' : 'Sonar Pulse found no ships in the area.'
     };
   } catch (error) {
     console.error('Error using Sonar Pulse ability:', error);
@@ -2560,6 +1930,113 @@ export const executeSonarPulse = async (roomId, playerId, targetRow, targetCol) 
   }
 };
 
+// Helper function to check for sonar decoy effects
+const checkForSonarDecoy = (room, playerId, row, col) => {
+  // Check if player has active sonar decoy
+  if (!room.players[playerId]?.sonarDecoyActive) return false;
+  
+  const decoyPos = room.players[playerId]?.sonarDecoyPosition;
+  if (!decoyPos) return false;
+  
+  // Check if the cell is within a 2x2 area that includes the decoy
+  const minRow = Math.max(0, decoyPos.row - 1);
+  const minCol = Math.max(0, decoyPos.col - 1);
+  const maxRow = Math.min(7, decoyPos.row + 1);
+  const maxCol = Math.min(7, decoyPos.col + 1);
+  
+  return row >= minRow && row <= maxRow && col >= minCol && col <= maxCol;
+};
+
+// Helper function to check for smoke screen effects
+const checkForSmokeScreen = (room, playerId, row, col) => {
+  // Check if player has active smoke screen
+  if (!room.players[playerId]?.smokeScreenActive) return false;
+  
+  const smokeArea = room.players[playerId]?.smokeScreenArea || [];
+  
+  // Check if the cell is in the smoke screen area
+  return smokeArea.some(cell => cell.row === row && cell.col === col);
+};
+
+// Helper function to check if opponent has JAM protection
+export const checkJamProtection = (room, defenderId) => {
+  // Check if the defender has JAM ability installed/active
+  return room.players[defenderId]?.abilities?.JAM?.installed === true;
+};
+
+// Check for counter attack after a player's ship is hit
+export const checkForCounterAttack = async (roomId, attackerId, defenderId, targetRow, targetCol, hitCount, isRegularAttack = true) => {
+  try {
+    if (hitCount <= 0) return; // No counter if no hits
+    
+    const roomRef = ref(database, `rooms/${roomId}`);
+    const snapshot = await get(roomRef);
+    const room = snapshot.val();
+    
+    if (!room || room.gameOver) return;
+    
+    // Check if defender has COUNTER ability
+    const defenderAbilities = room.players[defenderId]?.abilities || {};
+    if (!defenderAbilities.COUNTER?.installed) return;
+    
+    // Execute counter attack
+    const attackerGrid = room.players[attackerId]?.PlacementData?.grid;
+    if (!attackerGrid) return;
+    
+    // Find a random non-hit ship cell to counter-attack
+    const viableCells = [];
+    for (let r = 0; r < 8; r++) {
+      for (let c = 0; c < 8; c++) {
+        const cell = attackerGrid[r][c];
+        if (cell.ship && !cell.hit) {
+          viableCells.push({ row: r, col: c });
+        }
+      }
+    }
+    
+    if (viableCells.length === 0) return; // No viable counter targets
+    
+    // Pick random target
+    const randomIndex = Math.floor(Math.random() * viableCells.length);
+    const counterTarget = viableCells[randomIndex];
+    
+    const updates = {};
+    
+    // Mark as hit
+    updates[`rooms/${roomId}/players/${attackerId}/PlacementData/grid/${counterTarget.row}/${counterTarget.col}/hit`] = true;
+    updates[`rooms/${roomId}/players/${attackerId}/PlacementData/grid/${counterTarget.row}/${counterTarget.col}/attackLabel`] = getCoordinateLabel(counterTarget.col, counterTarget.row);
+    
+    // Update ship hits
+    const shipId = attackerGrid[counterTarget.row][counterTarget.col].ship;
+    if (shipId) {
+      const currentHits = room.players[attackerId]?.ships?.[shipId]?.hits || 0;
+      updates[`rooms/${roomId}/players/${attackerId}/ships/${shipId}/hits`] = currentHits + 1;
+    }
+    
+    // Mark counter as used
+    updates[`rooms/${roomId}/players/${defenderId}/abilities/COUNTER/installed`] = false;
+    updates[`rooms/${roomId}/players/${defenderId}/abilities/COUNTER/used`] = true;
+    
+    // Record counter attack
+    updates[`rooms/${roomId}/moves/${Date.now()}`] = {
+      type: 'counterAttack',
+      attackerId: defenderId, // Defender is now attacking back
+      defenderId: attackerId, // Attacker is now being defended against
+      targetRow: counterTarget.row,
+      targetCol: counterTarget.col,
+      triggeredBy: isRegularAttack ? 'attack' : 'ability',
+      timestamp: Date.now()
+    };
+    
+    await update(ref(database), updates);
+    return true;
+  } catch (error) {
+    console.error('Error in counter attack:', error);
+    return false;
+  }
+};
+
+// Execute Intel Leak ability (reveals the orientation of a random enemy ship)
 export const executeIntelLeak = async (roomId, playerId) => {
   try {
     const roomRef = ref(database, `rooms/${roomId}`);
@@ -2569,25 +2046,41 @@ export const executeIntelLeak = async (roomId, playerId) => {
     if (!room || room.gameOver) throw new Error('Invalid room state');
     if (room.currentTurn !== playerId) throw new Error('Not your turn');
 
+    const opponentId = Object.keys(room.players).find(id => id !== playerId);
+    const opponentShips = room.players[opponentId]?.ships || {};
     const playerAbilities = room.players[playerId]?.abilities || {};
-    if (!playerAbilities.intelLeak?.active || playerAbilities.intelLeak.used) {
+
+    // Check if opponent has EMP disabled support abilities
+    if (room.players[opponentId]?.empDisabled > 0) {
+      throw new Error('Enemy EMP has disabled your support abilities this turn');
+    }
+
+    if (!playerAbilities.INTEL_LEAK?.active || playerAbilities.INTEL_LEAK.used) {
       throw new Error('Intel Leak ability not available');
     }
 
-    const opponentId = Object.keys(room.players).find(id => id !== playerId);
-    const opponentAbilities = room.players[opponentId]?.abilities || {};    // Reveal opponent's available abilities
-    const activeAbilities = Object.entries(opponentAbilities)
-      .filter(([, ability]) => ability.active && !ability.used)
-      .map(([key]) => key);
+    // Get all ships
+    const ships = Object.entries(opponentShips);
+    if (ships.length === 0) {
+      throw new Error('No enemy ships found');
+    }
+
+    // Randomly select a ship
+    const randomIndex = Math.floor(Math.random() * ships.length);
+    const [shipId, shipData] = ships[randomIndex];
+    
+    const shipName = shipData.name || `Ship ${shipId}`;
+    const orientation = shipData.orientation || 'unknown';
 
     const updates = {};
-    updates[`rooms/${roomId}/players/${playerId}/abilities/intelLeak/used`] = true;
-    updates[`rooms/${roomId}/players/${playerId}/intelLeakResults`] = activeAbilities;
+    updates[`rooms/${roomId}/players/${playerId}/abilities/INTEL_LEAK/used`] = true;
     updates[`rooms/${roomId}/moves/${Date.now()}`] = {
       type: 'ability',
       name: 'INTEL_LEAK',
       playerId,
-      revealedAbilities: activeAbilities,
+      shipId,
+      shipName,
+      orientation,
       timestamp: Date.now()
     };
     updates[`rooms/${roomId}/currentTurn`] = opponentId;
@@ -2596,8 +2089,10 @@ export const executeIntelLeak = async (roomId, playerId) => {
     
     return { 
       success: true,
-      revealedAbilities: activeAbilities,
-      message: `Intel leaked! Opponent has ${activeAbilities.length} unused abilities.`
+      shipId,
+      shipName,
+      orientation,
+      message: `Intel Leak: Enemy ${shipName} is oriented ${orientation}`
     };
   } catch (error) {
     console.error('Error using Intel Leak ability:', error);
@@ -2605,7 +2100,8 @@ export const executeIntelLeak = async (roomId, playerId) => {
   }
 };
 
-export const executeSpotterPlane = async (roomId, playerId, targetRow, targetCol) => {
+// Execute Reconnaissance Flyby ability (counts unique ships in a line)
+export const executeReconnaissanceFlyby = async (roomId, playerId, targetRow, targetCol, isVertical = false) => {
   try {
     const roomRef = ref(database, `rooms/${roomId}`);
     const snapshot = await get(roomRef);
@@ -2613,116 +2109,69 @@ export const executeSpotterPlane = async (roomId, playerId, targetRow, targetCol
 
     if (!room || room.gameOver) throw new Error('Invalid room state');
     if (room.currentTurn !== playerId) throw new Error('Not your turn');
-
-    const playerAbilities = room.players[playerId]?.abilities || {};
-    if (!playerAbilities.spotterPlane?.active || playerAbilities.spotterPlane.used) {
-      throw new Error('Spotter Plane ability not available');
-    }
 
     const opponentId = Object.keys(room.players).find(id => id !== playerId);
-    const opponentGrid = room.players[opponentId].PlacementData?.grid;
+    const opponentGrid = room.players[opponentId]?.PlacementData?.grid || {};
+    const playerAbilities = room.players[playerId]?.abilities || {};
 
-    // Spotter plane reveals a cross pattern
-    const spottedCells = [];
-    const directions = [
-      [0, 0], [-1, 0], [1, 0], [0, -1], [0, 1], // Center and 4 adjacent
-      [-2, 0], [2, 0], [0, -2], [0, 2] // Extended cross
-    ];
-
-    for (const [dr, dc] of directions) {
-      const r = targetRow + dr;
-      const c = targetCol + dc;
-      if (r >= 0 && r < opponentGrid.length && c >= 0 && c < opponentGrid[0].length) {
-        spottedCells.push({
-          row: r,
-          col: c,
-          hasShip: !!opponentGrid[r][c].ship,
-          isHit: !!opponentGrid[r][c].hit
-        });
-      }
+    // Check if opponent has EMP disabled support abilities
+    if (room.players[opponentId]?.empDisabled > 0) {
+      throw new Error('Enemy EMP has disabled your support abilities this turn');
     }
 
-    const updates = {};
-    updates[`rooms/${roomId}/players/${playerId}/abilities/spotterPlane/used`] = true;
-    updates[`rooms/${roomId}/players/${playerId}/spotterPlaneResults`] = spottedCells;
-    updates[`rooms/${roomId}/moves/${Date.now()}`] = {
-      type: 'ability',
-      name: 'SPOTTER_PLANE',
-      playerId,
-      targetRow,
-      targetCol,
-      spottedCells,
-      timestamp: Date.now()
-    };
-    updates[`rooms/${roomId}/currentTurn`] = opponentId;
-
-    await update(ref(database), updates);
-    
-    return { 
-      success: true,
-      spottedCells,
-      message: `Spotter plane revealed ${spottedCells.length} cells!`
-    };
-  } catch (error) {
-    console.error('Error using Spotter Plane ability:', error);
-    throw error;
-  }
-};
-
-export const executeReconnaissanceFlyby = async (roomId, playerId, startRow, startCol, endRow, endCol) => {
-  try {
-    const roomRef = ref(database, `rooms/${roomId}`);
-    const snapshot = await get(roomRef);
-    const room = snapshot.val();
-
-    if (!room || room.gameOver) throw new Error('Invalid room state');
-    if (room.currentTurn !== playerId) throw new Error('Not your turn');
-
-    const playerAbilities = room.players[playerId]?.abilities || {};
-    if (!playerAbilities.reconnaissanceFlyby?.active || playerAbilities.reconnaissanceFlyby.used) {
+    if (!playerAbilities.RECONNAISSANCE_FLYBY?.active || playerAbilities.RECONNAISSANCE_FLYBY.used) {
       throw new Error('Reconnaissance Flyby ability not available');
     }
 
-    const opponentId = Object.keys(room.players).find(id => id !== playerId);
-    const opponentGrid = room.players[opponentId].PlacementData?.grid;
-
-    // Create line between start and end points
-    const reconCells = [];
-    const dx = Math.abs(endCol - startCol);
-    const dy = Math.abs(endRow - startRow);
-    const sx = startCol < endCol ? 1 : -1;
-    const sy = startRow < endRow ? 1 : -1;
-    let err = dx - dy;
-    let x = startCol;
-    let y = startRow;
-
-    while (true) {
-      if (y >= 0 && y < opponentGrid.length && x >= 0 && x < opponentGrid[0].length) {
-        reconCells.push({
-          row: y,
-          col: x,
-          hasShip: !!opponentGrid[y][x].ship
-        });
+    // Track unique ships encountered in the flyby
+    const uniqueShips = new Set();
+    
+    if (isVertical) {
+      // Vertical 1x5 line
+      if (targetRow + 4 >= 8) {
+        throw new Error('Not enough space for vertical reconnaissance flyby');
       }
-
-      if (x === endCol && y === endRow) break;
-      const e2 = 2 * err;
-      if (e2 > -dy) { err -= dy; x += sx; }
-      if (e2 < dx) { err += dx; y += sy; }
+      
+      for (let r = targetRow; r <= targetRow + 4; r++) {
+        const cell = opponentGrid[r][targetCol];
+        if (cell && cell.ship) {
+          // Skip if this is a cloaked ship
+          const isCloaked = room.players[opponentId]?.ships?.[cell.ship]?.cloaked > 0;
+          if (!isCloaked) {
+            uniqueShips.add(cell.ship);
+          }
+        }
+      }
+    } else {
+      // Horizontal 5x1 line
+      if (targetCol + 4 >= 8) {
+        throw new Error('Not enough space for horizontal reconnaissance flyby');
+      }
+      
+      for (let c = targetCol; c <= targetCol + 4; c++) {
+        const cell = opponentGrid[targetRow][c];
+        if (cell && cell.ship) {
+          // Skip if this is a cloaked ship
+          const isCloaked = room.players[opponentId]?.ships?.[cell.ship]?.cloaked > 0;
+          if (!isCloaked) {
+            uniqueShips.add(cell.ship);
+          }
+        }
+      }
     }
 
+    const uniqueShipCount = uniqueShips.size;
+
     const updates = {};
-    updates[`rooms/${roomId}/players/${playerId}/abilities/reconnaissanceFlyby/used`] = true;
-    updates[`rooms/${roomId}/players/${playerId}/reconResults`] = reconCells;
+    updates[`rooms/${roomId}/players/${playerId}/abilities/RECONNAISSANCE_FLYBY/used`] = true;
     updates[`rooms/${roomId}/moves/${Date.now()}`] = {
       type: 'ability',
       name: 'RECONNAISSANCE_FLYBY',
       playerId,
-      startRow,
-      startCol,
-      endRow,
-      endCol,
-      reconCells,
+      targetRow,
+      targetCol,
+      isVertical,
+      uniqueShipCount,
       timestamp: Date.now()
     };
     updates[`rooms/${roomId}/currentTurn`] = opponentId;
@@ -2731,8 +2180,8 @@ export const executeReconnaissanceFlyby = async (roomId, playerId, startRow, sta
     
     return { 
       success: true,
-      reconCells,
-      message: `Reconnaissance flyby scanned ${reconCells.length} cells!`
+      uniqueShipCount,
+      message: `Reconnaissance Flyby detected ${uniqueShipCount} unique ships in the ${isVertical ? 'vertical' : 'horizontal'} line.`
     };
   } catch (error) {
     console.error('Error using Reconnaissance Flyby ability:', error);
@@ -2740,6 +2189,7 @@ export const executeReconnaissanceFlyby = async (roomId, playerId, startRow, sta
   }
 };
 
+// Execute Target Analysis ability (shows ship health information)
 export const executeTargetAnalysis = async (roomId, playerId, targetRow, targetCol) => {
   try {
     const roomRef = ref(database, `rooms/${roomId}`);
@@ -2749,41 +2199,49 @@ export const executeTargetAnalysis = async (roomId, playerId, targetRow, targetC
     if (!room || room.gameOver) throw new Error('Invalid room state');
     if (room.currentTurn !== playerId) throw new Error('Not your turn');
 
+    const opponentId = Object.keys(room.players).find(id => id !== playerId);
+    const opponentGrid = room.players[opponentId]?.PlacementData?.grid || {};
+    const opponentShips = room.players[opponentId]?.ships || {};
     const playerAbilities = room.players[playerId]?.abilities || {};
-    if (!playerAbilities.targetAnalysis?.active || playerAbilities.targetAnalysis.used) {
+
+    // Check if opponent has EMP disabled support abilities
+    if (room.players[opponentId]?.empDisabled > 0) {
+      throw new Error('Enemy EMP has disabled your support abilities this turn');
+    }
+
+    if (!playerAbilities.TARGET_ANALYSIS?.active || playerAbilities.TARGET_ANALYSIS.used) {
       throw new Error('Target Analysis ability not available');
     }
 
-    const opponentId = Object.keys(room.players).find(id => id !== playerId);
-    const opponentGrid = room.players[opponentId].PlacementData?.grid;
+    // Check if the target cell was previously hit
+    const targetCell = opponentGrid[targetRow][targetCol];
+    if (!targetCell || !targetCell.hit || !targetCell.ship) {
+      throw new Error('Can only analyze previously hit ship squares');
+    }
 
-    // Analyze target cell and adjacent cells
-    const analysisResults = [];
-    for (let r = targetRow - 1; r <= targetRow + 1; r++) {
-      for (let c = targetCol - 1; c <= targetCol + 1; c++) {
-        if (r >= 0 && r < opponentGrid.length && c >= 0 && c < opponentGrid[0].length) {
-          const cell = opponentGrid[r][c];
-          analysisResults.push({
-            row: r,
-            col: c,
-            hasShip: !!cell.ship,
-            shipType: cell.ship ? cell.shipType : null,
-            damage: cell.hit ? 'damaged' : 'intact'
-          });
-        }
-      }
-    };
+    const shipId = targetCell.ship;
+    const ship = opponentShips[shipId];
+    
+    if (!ship) {
+      throw new Error('Ship information not found');
+    }
+
+    // Get ship health information
+    const totalHealth = ship.size || 1;
+    const currentHits = ship.hits || 0;
+    const currentHealth = Math.max(0, totalHealth - currentHits);
 
     const updates = {};
-    updates[`rooms/${roomId}/players/${playerId}/abilities/targetAnalysis/used`] = true;
-    updates[`rooms/${roomId}/players/${playerId}/analysisResults`] = analysisResults;
+    updates[`rooms/${roomId}/players/${playerId}/abilities/TARGET_ANALYSIS/used`] = true;
     updates[`rooms/${roomId}/moves/${Date.now()}`] = {
       type: 'ability',
       name: 'TARGET_ANALYSIS',
       playerId,
       targetRow,
       targetCol,
-      analysisResults,
+      shipId,
+      currentHealth,
+      totalHealth,
       timestamp: Date.now()
     };
     updates[`rooms/${roomId}/currentTurn`] = opponentId;
@@ -2792,8 +2250,10 @@ export const executeTargetAnalysis = async (roomId, playerId, targetRow, targetC
     
     return { 
       success: true,
-      analysisResults,
-      message: `Target analysis complete! Analyzed ${analysisResults.length} cells.`
+      shipId,
+      currentHealth,
+      totalHealth,
+      message: `Target Analysis: Ship has ${currentHealth}/${totalHealth} health remaining`
     };
   } catch (error) {
     console.error('Error using Target Analysis ability:', error);
@@ -2801,6 +2261,7 @@ export const executeTargetAnalysis = async (roomId, playerId, targetRow, targetC
   }
 };
 
+// Execute Weather Forecast ability (predicts if the next shot will hit)
 export const executeWeatherForecast = async (roomId, playerId) => {
   try {
     const roomRef = ref(database, `rooms/${roomId}`);
@@ -2810,42 +2271,46 @@ export const executeWeatherForecast = async (roomId, playerId) => {
     if (!room || room.gameOver) throw new Error('Invalid room state');
     if (room.currentTurn !== playerId) throw new Error('Not your turn');
 
+    const opponentId = Object.keys(room.players).find(id => id !== playerId);
+    const opponentGrid = room.players[opponentId]?.PlacementData?.grid || {};
     const playerAbilities = room.players[playerId]?.abilities || {};
-    if (!playerAbilities.weatherForecast?.active || playerAbilities.weatherForecast.used) {
+
+    // Check if opponent has EMP disabled support abilities
+    if (room.players[opponentId]?.empDisabled > 0) {
+      throw new Error('Enemy EMP has disabled your support abilities this turn');
+    }
+
+    if (!playerAbilities.WEATHER_FORECAST?.active || playerAbilities.WEATHER_FORECAST.used) {
       throw new Error('Weather Forecast ability not available');
     }
 
-    const opponentId = Object.keys(room.players).find(id => id !== playerId);
-
-    // Weather forecast reveals next 3 moves that would be most effective
-    const opponentGrid = room.players[opponentId].PlacementData?.grid;
-    const recommendedTargets = [];
-    
-    // Find cells with ships that haven't been hit
-    for (let r = 0; r < opponentGrid.length; r++) {
-      for (let c = 0; c < opponentGrid[r].length; c++) {
+    // Find all non-hit, non-miss cells
+    const availableCells = [];
+    for (let r = 0; r < 8; r++) {
+      for (let c = 0; c < 8; c++) {
         const cell = opponentGrid[r][c];
-        if (cell.ship && !cell.hit && !cell.attacked) {
-          recommendedTargets.push({
-            row: r,
-            col: c,
-            priority: 'high'
-          });
+        if (cell && !cell.hit && !cell.miss) {
+          availableCells.push({ row: r, col: c, hasShip: Boolean(cell.ship) });
         }
       }
     }
 
-    // Limit to top 3 recommendations
-    const forecast = recommendedTargets.slice(0, 3);
+    if (availableCells.length === 0) {
+      throw new Error('No valid targets available for prediction');
+    }
+
+    // Get a random cell and check if it will be a hit
+    const randomIndex = Math.floor(Math.random() * availableCells.length);
+    const targetCell = availableCells[randomIndex];
+    const willHit = targetCell.hasShip;
 
     const updates = {};
-    updates[`rooms/${roomId}/players/${playerId}/abilities/weatherForecast/used`] = true;
-    updates[`rooms/${roomId}/players/${playerId}/weatherForecast`] = forecast;
+    updates[`rooms/${roomId}/players/${playerId}/abilities/WEATHER_FORECAST/used`] = true;
     updates[`rooms/${roomId}/moves/${Date.now()}`] = {
       type: 'ability',
       name: 'WEATHER_FORECAST',
       playerId,
-      forecast,
+      willHit,
       timestamp: Date.now()
     };
     updates[`rooms/${roomId}/currentTurn`] = opponentId;
@@ -2854,8 +2319,8 @@ export const executeWeatherForecast = async (roomId, playerId) => {
     
     return { 
       success: true,
-      forecast,
-      message: `Weather forecast reveals ${forecast.length} high-priority targets!`
+      willHit,
+      message: `Weather Forecast: Your next standard shot will ${willHit ? 'HIT' : 'MISS'}`
     };
   } catch (error) {
     console.error('Error using Weather Forecast ability:', error);
@@ -2863,6 +2328,7 @@ export const executeWeatherForecast = async (roomId, playerId) => {
   }
 };
 
+// Execute Communications Intercept ability (reveals random ship information)
 export const executeCommunicationsIntercept = async (roomId, playerId) => {
   try {
     const roomRef = ref(database, `rooms/${roomId}`);
@@ -2872,31 +2338,75 @@ export const executeCommunicationsIntercept = async (roomId, playerId) => {
     if (!room || room.gameOver) throw new Error('Invalid room state');
     if (room.currentTurn !== playerId) throw new Error('Not your turn');
 
+    const opponentId = Object.keys(room.players).find(id => id !== playerId);
+    const opponentGrid = room.players[opponentId]?.PlacementData?.grid || {};
+    const opponentShips = room.players[opponentId]?.ships || {};
     const playerAbilities = room.players[playerId]?.abilities || {};
-    if (!playerAbilities.communicationsIntercept?.active || playerAbilities.communicationsIntercept.used) {
+
+    // Check if opponent has EMP disabled support abilities
+    if (room.players[opponentId]?.empDisabled > 0) {
+      throw new Error('Enemy EMP has disabled your support abilities this turn');
+    }
+
+    if (!playerAbilities.COMMUNICATIONS_INTERCEPT?.active || playerAbilities.COMMUNICATIONS_INTERCEPT.used) {
       throw new Error('Communications Intercept ability not available');
     }
 
-    const opponentId = Object.keys(room.players).find(id => id !== playerId);
+    // Find all ships that haven't been hit
+    const untouchedShips = [];
+    for (const [shipId, ship] of Object.entries(opponentShips)) {
+      if (!ship.hits || ship.hits === 0) {
+        untouchedShips.push({ id: shipId, ...ship });
+      }
+    }
 
-    // Intercept reveals opponent's last 3 moves and their ship placement strategy
-    const recentMoves = getRecentMoves(room.moves, 3);
-    const opponentShips = room.players[opponentId]?.ships || {};
-    
-    const interceptData = {
-      recentMoves,
-      shipCount: Object.keys(opponentShips).length,
-      damagedShips: Object.values(opponentShips).filter(ship => ship.hits > 0).length
-    };
+    let infoResult = "";
+    let shipInfo = null;
+
+    if (untouchedShips.length > 0) {
+      // Choose randomly between ship length info or general vicinity
+      const infoType = Math.random() < 0.5 ? 'length' : 'vicinity';
+      const randomIndex = Math.floor(Math.random() * untouchedShips.length);
+      const targetShip = untouchedShips[randomIndex];
+      
+      if (infoType === 'length') {
+        // Reveal ship length
+        infoResult = `Intercepted: Enemy ship of length ${targetShip.size} detected`;
+        shipInfo = { id: targetShip.id, size: targetShip.size };
+      } else {
+        // Reveal general vicinity (quadrant)
+        let quadrant = '';
+        let foundLocation = false;
+        
+        // Find at least one cell of the ship
+        for (let r = 0; r < 8; r++) {
+          for (let c = 0; c < 8; c++) {
+            const cell = opponentGrid[r][c];
+            if (cell && cell.ship === targetShip.id) {
+              // Determine quadrant (top-left, top-right, bottom-left, bottom-right)
+              quadrant = r < 4 ? (c < 4 ? 'top-left' : 'top-right') : (c < 4 ? 'bottom-left' : 'bottom-right');
+              foundLocation = true;
+              break;
+            }
+          }
+          if (foundLocation) break;
+        }
+        
+        infoResult = `Intercepted: Untouched enemy ship detected in ${quadrant} quadrant`;
+        shipInfo = { id: targetShip.id, quadrant };
+      }
+    } else {
+      infoResult = "Intercepted: No undamaged ships found";
+    }
 
     const updates = {};
-    updates[`rooms/${roomId}/players/${playerId}/abilities/communicationsIntercept/used`] = true;
-    updates[`rooms/${roomId}/players/${playerId}/interceptData`] = interceptData;
+    updates[`rooms/${roomId}/players/${playerId}/abilities/COMMUNICATIONS_INTERCEPT/used`] = true;
     updates[`rooms/${roomId}/moves/${Date.now()}`] = {
       type: 'ability',
       name: 'COMMUNICATIONS_INTERCEPT',
       playerId,
-      interceptData,
+      infoResult,
+      shipInfo,
       timestamp: Date.now()
     };
     updates[`rooms/${roomId}/currentTurn`] = opponentId;
@@ -2905,8 +2415,8 @@ export const executeCommunicationsIntercept = async (roomId, playerId) => {
     
     return { 
       success: true,
-      interceptData,
-      message: `Communications intercepted! Revealed opponent's recent strategy.`
+      infoResult,
+      shipInfo
     };
   } catch (error) {
     console.error('Error using Communications Intercept ability:', error);
@@ -2914,170 +2424,7 @@ export const executeCommunicationsIntercept = async (roomId, playerId) => {
   }
 };
 
-// Execute God's Hand ability (admin-only special ability)
-export const executeGodsHand = async (roomId, targetPlayerId, quadrantIndex, isAdminTriggered = false) => {
-  try {
-    const roomRef = ref(database, `rooms/${roomId}`);
-    const snapshot = await get(roomRef);
-    const room = snapshot.val();
-
-    if (!room || room.gameOver) throw new Error('Invalid room state');
-    
-    // If not admin triggered, check if it's the player's turn
-    if (!isAdminTriggered && room.currentTurn !== targetPlayerId) {
-      throw new Error('Not your turn');
-    }
-
-    const targetGrid = room.players[targetPlayerId]?.PlacementData?.grid;
-    if (!targetGrid) throw new Error('Target player grid not found');
-
-    // Define 4x4 quadrants (for 8x8 grid)
-    const quadrants = [
-      { startRow: 0, startCol: 0 }, // Top-left
-      { startRow: 0, startCol: 4 }, // Top-right
-      { startRow: 4, startCol: 0 }, // Bottom-left
-      { startRow: 4, startCol: 4 }  // Bottom-right
-    ];
-
-    if (quadrantIndex < 0 || quadrantIndex >= quadrants.length) {
-      throw new Error('Invalid quadrant index');
-    }
-
-    const quadrant = quadrants[quadrantIndex];
-    const updates = {};
-    const destroyedCells = [];
-    let shipsDestroyed = 0;
-
-    // Destroy all cells in the 4x4 quadrant
-    for (let r = quadrant.startRow; r < quadrant.startRow + 4; r++) {
-      for (let c = quadrant.startCol; c < quadrant.startCol + 4; c++) {
-        const cell = targetGrid[r][c];
-        
-        // Mark cell as hit/destroyed
-        updates[`rooms/${roomId}/players/${targetPlayerId}/PlacementData/grid/${r}/${c}/hit`] = true;
-        updates[`rooms/${roomId}/players/${targetPlayerId}/PlacementData/grid/${r}/${c}/destroyed`] = true;
-        updates[`rooms/${roomId}/players/${targetPlayerId}/PlacementData/grid/${r}/${c}/attackLabel`] = getCoordinateLabel(c, r);
-        
-        destroyedCells.push({ row: r, col: c, hadShip: !!cell.ship });
-        
-        // If cell had a ship, update ship damage
-        if (cell.ship) {
-          const shipId = cell.ship;
-          const currentHits = room.players[targetPlayerId]?.ships?.[shipId]?.hits || 0;
-          updates[`rooms/${roomId}/players/${targetPlayerId}/ships/${shipId}/hits`] = currentHits + 1;
-          
-          // Check if ship is completely destroyed
-          const shipLength = room.players[targetPlayerId]?.ships?.[shipId]?.length || 1;
-          if (currentHits + 1 >= shipLength) {
-            updates[`rooms/${roomId}/players/${targetPlayerId}/ships/${shipId}/destroyed`] = true;
-            shipsDestroyed++;
-          }
-        }
-      }
-    }
-
-    // Record the God's Hand move
-    updates[`rooms/${roomId}/moves/${Date.now()}`] = {
-      type: 'ability',
-      name: 'GODS_HAND',
-      playerId: isAdminTriggered ? 'ADMIN' : targetPlayerId,
-      targetPlayerId,
-      quadrantIndex,
-      destroyedCells,
-      shipsDestroyed,
-      isAdminTriggered,
-      timestamp: Date.now()
-    };
-
-    // If not admin triggered, mark ability as used and switch turns
-    if (!isAdminTriggered) {
-      const opponentId = Object.keys(room.players).find(id => id !== targetPlayerId);
-      updates[`rooms/${roomId}/players/${targetPlayerId}/abilities/GODS_HAND/used`] = true;
-      updates[`rooms/${roomId}/currentTurn`] = opponentId;
-    }
-
-    // Check if game is over (all ships destroyed)
-    const allShipsDestroyed = Object.values(room.players[targetPlayerId]?.ships || {})
-      .every(ship => ship.destroyed || (ship.hits >= ship.length));
-    
-    if (allShipsDestroyed) {
-      const winnerId = Object.keys(room.players).find(id => id !== targetPlayerId);
-      updates[`rooms/${roomId}/gameOver`] = true;
-      updates[`rooms/${roomId}/winner`] = winnerId;
-      updates[`rooms/${roomId}/status`] = 'completed';
-    }
-
-    await update(ref(database), updates);
-    
-    return { 
-      success: true,
-      destroyedCells,
-      shipsDestroyed,
-      gameOver: allShipsDestroyed,
-      message: `God's Hand destroyed quadrant ${quadrantIndex + 1}! ${destroyedCells.length} cells obliterated, ${shipsDestroyed} ships destroyed.`
-    };
-  } catch (error) {
-    console.error("Error executing God's Hand ability:", error);
-    throw error;
-  }
-};
-
-// Execute Tactical Readout ability (reveals whether opponent used Attack, Defense, or Support ability last turn)
-export const executeTacticalReadout = async (roomId, playerId) => {
-  try {
-    const roomRef = ref(database, `rooms/${roomId}`);
-    const snapshot = await get(roomRef);
-    const room = snapshot.val();
-
-    if (!room || room.gameOver) throw new Error('Invalid room state');
-    if (room.currentTurn !== playerId) throw new Error('Not your turn');
-
-    const playerAbilities = room.players[playerId]?.abilities || {};
-    if (!playerAbilities.TACTICAL_READOUT?.active || playerAbilities.TACTICAL_READOUT.used) {
-      throw new Error('Tactical Readout ability not available');
-    }
-
-    const opponentId = Object.keys(room.players).find(id => id !== playerId);
-    
-    // Get the most recent move from opponent
-    const recentMoves = getRecentMoves(room.moves || {}, 5);
-    const lastOpponentMove = recentMoves.find(move => move.playerId === opponentId && move.type === 'ability');
-    
-    let readout = 'No recent ability detected';
-    if (lastOpponentMove) {
-      const abilityUsed = lastOpponentMove.name;
-      const abilityInfo = ABILITIES[abilityUsed];
-      if (abilityInfo) {
-        readout = `Last ability type: ${abilityInfo.type.toUpperCase()}`;
-      }
-    }
-
-    const updates = {};
-    updates[`rooms/${roomId}/players/${playerId}/abilities/TACTICAL_READOUT/used`] = true;
-    updates[`rooms/${roomId}/players/${playerId}/tacticalReadout`] = readout;
-    updates[`rooms/${roomId}/moves/${Date.now()}`] = {
-      type: 'ability',
-      name: 'TACTICAL_READOUT',
-      playerId,
-      readout,
-      timestamp: Date.now()
-    };
-    updates[`rooms/${roomId}/currentTurn`] = opponentId;
-
-    await update(ref(database), updates);
-    
-    return { 
-      success: true,
-      readout,
-      message: `Tactical Readout: ${readout}`
-    };
-  } catch (error) {
-    console.error('Error using Tactical Readout ability:', error);
-    throw error;
-  }
-};
-
-// Execute Jamming Signal ability (disables opponent's Scanner/Hacker abilities for next turn)
+// Execute Jamming Signal ability (disables enemy Scanner/Hacker abilities)
 export const executeJammingSignal = async (roomId, playerId) => {
   try {
     const roomRef = ref(database, `rooms/${roomId}`);
@@ -3087,17 +2434,18 @@ export const executeJammingSignal = async (roomId, playerId) => {
     if (!room || room.gameOver) throw new Error('Invalid room state');
     if (room.currentTurn !== playerId) throw new Error('Not your turn');
 
+    const opponentId = Object.keys(room.players).find(id => id !== playerId);
     const playerAbilities = room.players[playerId]?.abilities || {};
+
     if (!playerAbilities.JAMMING_SIGNAL?.active || playerAbilities.JAMMING_SIGNAL.used) {
       throw new Error('Jamming Signal ability not available');
     }
 
-    const opponentId = Object.keys(room.players).find(id => id !== playerId);
-    
     const updates = {};
     
-    // Disable opponent's support abilities for 1 turn
-    updates[`rooms/${roomId}/players/${opponentId}/jammingDisabled`] = 1;
+    // Disable opponent's Scanner/Hacker abilities for next turn
+    updates[`rooms/${roomId}/players/${opponentId}/jammingSignalActive`] = true;
+    updates[`rooms/${roomId}/players/${opponentId}/jammingSignalDuration`] = 1; // Lasts for 1 turn
     
     updates[`rooms/${roomId}/players/${playerId}/abilities/JAMMING_SIGNAL/used`] = true;
     updates[`rooms/${roomId}/moves/${Date.now()}`] = {
@@ -3112,7 +2460,7 @@ export const executeJammingSignal = async (roomId, playerId) => {
     
     return { 
       success: true,
-      message: 'Jamming Signal activated! Opponent Scanner/Hacker abilities disabled for next turn.'
+      message: 'Jamming Signal activated! Enemy Scanner/Hacker abilities disabled for their next turn.'
     };
   } catch (error) {
     console.error('Error using Jamming Signal ability:', error);
@@ -3120,7 +2468,154 @@ export const executeJammingSignal = async (roomId, playerId) => {
   }
 };
 
-// Execute Opponent's Playbook ability (reveals the last offensive ability the opponent used)
+// Execute Spotter Plane ability (checks for ships adjacent to a target square)
+export const executeSpotterPlane = async (roomId, playerId, targetRow, targetCol) => {
+  try {
+    const roomRef = ref(database, `rooms/${roomId}`);
+    const snapshot = await get(roomRef);
+    const room = snapshot.val();
+
+    if (!room || room.gameOver) throw new Error('Invalid room state');
+    if (room.currentTurn !== playerId) throw new Error('Not your turn');
+
+    const opponentId = Object.keys(room.players).find(id => id !== playerId);
+    const opponentGrid = room.players[opponentId]?.PlacementData?.grid || {};
+    const playerAbilities = room.players[playerId]?.abilities || {};
+
+    // Check if opponent has EMP disabled support abilities
+    if (room.players[opponentId]?.empDisabled > 0) {
+      throw new Error('Enemy EMP has disabled your support abilities this turn');
+    }
+
+    if (!playerAbilities.SPOTTER_PLANE?.active || playerAbilities.SPOTTER_PLANE.used) {
+      throw new Error('Spotter Plane ability not available');
+    }
+
+    // Verify that the target square is empty
+    const targetCell = opponentGrid[targetRow][targetCol];
+    if (targetCell.ship) {
+      throw new Error('Can only use Spotter Plane on empty squares');
+    }
+
+    let hasAdjacentShip = false;
+    
+    // Check adjacent squares (up, down, left, right)
+    const adjacentSquares = [
+      { row: targetRow - 1, col: targetCol }, // Up
+      { row: targetRow + 1, col: targetCol }, // Down
+      { row: targetRow, col: targetCol - 1 }, // Left
+      { row: targetRow, col: targetCol + 1 }  // Right
+    ];
+
+    for (const adj of adjacentSquares) {
+      if (adj.row >= 0 && adj.row < 8 && adj.col >= 0 && adj.col < 8) {
+        const adjCell = opponentGrid[adj.row][adj.col];
+        if (adjCell && adjCell.ship) {
+          // Check if this is a cloaked ship
+          const isCloaked = room.players[opponentId]?.ships?.[adjCell.ship]?.cloaked > 0;
+          if (!isCloaked) {
+            hasAdjacentShip = true;
+            break;
+          }
+        }
+      }
+    }
+
+    const updates = {};
+    updates[`rooms/${roomId}/players/${playerId}/abilities/SPOTTER_PLANE/used`] = true;
+    updates[`rooms/${roomId}/moves/${Date.now()}`] = {
+      type: 'ability',
+      name: 'SPOTTER_PLANE',
+      playerId,
+      targetRow,
+      targetCol,
+      hasAdjacentShip,
+      timestamp: Date.now()
+    };
+    updates[`rooms/${roomId}/currentTurn`] = opponentId;
+
+    await update(ref(database), updates);
+    
+    return { 
+      success: true,
+      hasAdjacentShip,
+      message: hasAdjacentShip ? 'Spotter Plane detected ships adjacent to target!' : 'Spotter Plane found no ships adjacent to target.'
+    };
+  } catch (error) {
+    console.error('Error using Spotter Plane ability:', error);
+    throw error;
+  }
+};
+
+// Execute Tactical Readout ability (reveals the opponent's last ability type)
+export const executeTacticalReadout = async (roomId, playerId) => {
+  try {
+    const roomRef = ref(database, `rooms/${roomId}`);
+    const snapshot = await get(roomRef);
+    const room = snapshot.val();
+
+    if (!room || room.gameOver) throw new Error('Invalid room state');
+    if (room.currentTurn !== playerId) throw new Error('Not your turn');
+
+    const opponentId = Object.keys(room.players).find(id => id !== playerId);
+    const playerAbilities = room.players[playerId]?.abilities || {};
+
+    // Check if opponent has EMP disabled support abilities
+    if (room.players[opponentId]?.empDisabled > 0) {
+      throw new Error('Enemy EMP has disabled your support abilities this turn');
+    }
+
+    if (!playerAbilities.TACTICAL_READOUT?.active || playerAbilities.TACTICAL_READOUT.used) {
+      throw new Error('Tactical Readout ability not available');
+    }
+
+    // Get last opponent move
+    const moves = room.moves || {};
+    const lastOpponentMove = Object.entries(moves)
+      .sort((a, b) => b[0] - a[0]) // Sort by timestamp (descending)
+      .map(([_, move]) => move)
+      .find(move => move.playerId === opponentId);
+
+    let abilityType = 'unknown';
+    if (lastOpponentMove) {
+      if (lastOpponentMove.type === 'attack' || 
+          (lastOpponentMove.type === 'ability' && 
+           ABILITIES[lastOpponentMove.name]?.type === 'attack')) {
+        abilityType = 'attack';
+      } else if (lastOpponentMove.type === 'ability' && 
+                ABILITIES[lastOpponentMove.name]?.type === 'defense') {
+        abilityType = 'defense';
+      } else if (lastOpponentMove.type === 'ability' && 
+                ABILITIES[lastOpponentMove.name]?.type === 'support') {
+        abilityType = 'support';
+      }
+    }
+
+    const updates = {};
+    updates[`rooms/${roomId}/players/${playerId}/abilities/TACTICAL_READOUT/used`] = true;
+    updates[`rooms/${roomId}/moves/${Date.now()}`] = {
+      type: 'ability',
+      name: 'TACTICAL_READOUT',
+      playerId,
+      abilityType,
+      timestamp: Date.now()
+    };
+    updates[`rooms/${roomId}/currentTurn`] = opponentId;
+
+    await update(ref(database), updates);
+    
+    return { 
+      success: true,
+      abilityType,
+      message: `Tactical Readout: Opponent last used a ${abilityType} action`
+    };
+  } catch (error) {
+    console.error('Error using Tactical Readout ability:', error);
+    throw error;
+  }
+};
+
+// Execute Opponent's Playbook ability (reveals the opponent's last offensive ability)
 export const executeOpponentsPlaybook = async (roomId, playerId) => {
   try {
     const roomRef = ref(database, `rooms/${roomId}`);
@@ -3130,35 +2625,42 @@ export const executeOpponentsPlaybook = async (roomId, playerId) => {
     if (!room || room.gameOver) throw new Error('Invalid room state');
     if (room.currentTurn !== playerId) throw new Error('Not your turn');
 
+    const opponentId = Object.keys(room.players).find(id => id !== playerId);
     const playerAbilities = room.players[playerId]?.abilities || {};
-    if (!playerAbilities.OPPONENTS_PLAYBOOK?.active || playerAbilities.OPPONENTS_PLAYBOOK.used) {
-      throw new Error('Opponent\'s Playbook ability not available');
+
+    // Check if opponent has EMP disabled support abilities
+    if (room.players[opponentId]?.empDisabled > 0) {
+      throw new Error('Enemy EMP has disabled your support abilities this turn');
     }
 
-    const opponentId = Object.keys(room.players).find(id => id !== playerId);
+    if (!playerAbilities.OPPONENTS_PLAYBOOK?.active || playerAbilities.OPPONENTS_PLAYBOOK.used) {
+      throw new Error("Opponent's Playbook ability not available");
+    }
+
+    // Find last offensive ability used by opponent
+    const moves = room.moves || {};
+    const lastOffensiveMove = Object.entries(moves)
+      .sort((a, b) => b[0] - a[0]) // Sort by timestamp (descending)
+      .map(([_, move]) => move)
+      .find(move => move.playerId === opponentId && 
+                   move.type === 'ability' && 
+                   ABILITIES[move.name]?.type === 'attack');
+
+    let lastAbilityName = 'unknown';
     
-    // Get the most recent offensive ability from opponent
-    const recentMoves = getRecentMoves(room.moves || {}, 10);
-    const lastOpponentAbility = recentMoves.find(move => 
-      move.playerId === opponentId && 
-      move.type === 'ability' && 
-      ABILITIES[move.name]?.type === 'attack'
-    );
-    
-    let playbookInfo = 'No recent offensive abilities detected';
-    if (lastOpponentAbility) {
-      const abilityName = ABILITIES[lastOpponentAbility.name]?.name || lastOpponentAbility.name;
-      playbookInfo = `Last offensive ability: ${abilityName}`;
+    if (lastOffensiveMove && lastOffensiveMove.name) {
+      lastAbilityName = ABILITIES[lastOffensiveMove.name]?.name || lastOffensiveMove.name;
+    } else {
+      lastAbilityName = 'No offensive ability used yet';
     }
 
     const updates = {};
     updates[`rooms/${roomId}/players/${playerId}/abilities/OPPONENTS_PLAYBOOK/used`] = true;
-    updates[`rooms/${roomId}/players/${playerId}/playbookInfo`] = playbookInfo;
     updates[`rooms/${roomId}/moves/${Date.now()}`] = {
       type: 'ability',
       name: 'OPPONENTS_PLAYBOOK',
       playerId,
-      playbookInfo,
+      lastAbilityName,
       timestamp: Date.now()
     };
     updates[`rooms/${roomId}/currentTurn`] = opponentId;
@@ -3167,169 +2669,11 @@ export const executeOpponentsPlaybook = async (roomId, playerId) => {
     
     return { 
       success: true,
-      playbookInfo,
-      message: `Opponent's Playbook: ${playbookInfo}`
+      lastAbilityName,
+      message: `Opponent's Playbook: Last offensive ability used was ${lastAbilityName}`
     };
   } catch (error) {
-    console.error('Error using Opponent\'s Playbook ability:', error);
+    console.error("Error using Opponent's Playbook ability:", error);
     throw error;
   }
 };
-
-// Helper functions for ability checks and effects
-export const checkJamProtection = (room, playerId) => {
-  const playerAbilities = room.players[playerId]?.abilities;
-  return playerAbilities?.JAM?.installed === true;
-};
-
-export const checkForCounterAttack = async (roomId, attackerId, defenderId, targetRow, targetCol, hitCount, isCounterAttack = false) => {
-  try {
-    const roomRef = ref(database, `rooms/${roomId}`);
-    const snapshot = await get(roomRef);
-    const room = snapshot.val();
-    
-    if (!room) return;
-
-    const defender = room.players[defenderId];
-    // Check if defender has counter ability installed (not just active)
-    if (!defender || !defender.abilities?.COUNTER?.installed || isCounterAttack) {
-      return;
-    }
-
-    // Counter attack logic - attack back at a random location on attacker's grid
-    const attacker = room.players[attackerId];
-    const attackerGrid = attacker.PlacementData?.grid;
-    
-    if (!attackerGrid) return;
-    
-    // Find available targets (not already hit or missed)
-    const availableTargets = [];
-    for (let row = 0; row < attackerGrid.length; row++) {
-      for (let col = 0; col < attackerGrid[row].length; col++) {
-        const cell = attackerGrid[row][col];
-        if (!cell.hit && !cell.miss) {
-          availableTargets.push({ row, col });
-        }
-      }
-    }
-
-    if (availableTargets.length > 0) {
-      const randomTarget = availableTargets[Math.floor(Math.random() * availableTargets.length)];
-      const targetCell = attackerGrid[randomTarget.row][randomTarget.col];
-      
-      const hit = Boolean(targetCell.ship);
-      
-      // Update attacker's grid
-      const updates = {};
-      if (hit) {
-        updates[`rooms/${roomId}/players/${attackerId}/PlacementData/grid/${randomTarget.row}/${randomTarget.col}/hit`] = true;
-        updates[`rooms/${roomId}/players/${attackerId}/PlacementData/grid/${randomTarget.row}/${randomTarget.col}/fromCounter`] = true;
-        updates[`rooms/${roomId}/players/${attackerId}/PlacementData/grid/${randomTarget.row}/${randomTarget.col}/attackLabel`] = getCoordinateLabel(randomTarget.col, randomTarget.row);
-        
-        // Update ship hits if there's a ship
-        const shipId = targetCell.ship;
-        if (shipId) {
-          const currentHits = attacker.ships?.[shipId]?.hits || 0;
-          updates[`rooms/${roomId}/players/${attackerId}/ships/${shipId}/hits`] = currentHits + 1;
-        }
-      } else {
-        updates[`rooms/${roomId}/players/${attackerId}/PlacementData/grid/${randomTarget.row}/${randomTarget.col}/miss`] = true;
-        updates[`rooms/${roomId}/players/${attackerId}/PlacementData/grid/${randomTarget.row}/${randomTarget.col}/fromCounter`] = true;
-        updates[`rooms/${roomId}/players/${attackerId}/PlacementData/grid/${randomTarget.row}/${randomTarget.col}/attackLabel`] = getCoordinateLabel(randomTarget.col, randomTarget.row);
-      }
-      
-      // Mark counter as used after activation
-      updates[`rooms/${roomId}/players/${defenderId}/abilities/COUNTER/installed`] = false;
-      
-      // Record counter attack move
-      updates[`rooms/${roomId}/moves/${Date.now()}`] = {
-        type: 'counter_attack',
-        defenderId,
-        attackerId,
-        targetRow: randomTarget.row,
-        targetCol: randomTarget.col,
-        hit,
-        timestamp: Date.now()
-      };
-      
-      await update(ref(database), updates);
-        console.log(`Counter attack: ${defender.name || 'Defender'} counter-attacked ${attacker.name || 'Attacker'} at ${getCoordinateLabel(randomTarget.col, randomTarget.row)} - ${hit ? 'HIT' : 'MISS'}`);
-      
-      return true; // Counter attack occurred
-    }
-    
-    return false; // No counter attack occurred
-  } catch (error) {
-    console.error('Error in checkForCounterAttack:', error);
-    return false;
-  }
-};
-
-export const checkForSonarDecoy = (room, playerId, row, col) => {
-  const playerAbilities = room.players[playerId].abilities;
-  if (!playerAbilities.sonarDecoy || !playerAbilities.sonarDecoy.active) {
-    return false;
-  }
-  
-  // Check if this cell has a decoy placed
-  const decoyPositions = playerAbilities.sonarDecoy.positions || [];
-  return decoyPositions.some(pos => pos.row === row && pos.col === col);
-};
-
-export const checkForSmokeScreen = (room, playerId, row, col) => {
-  const playerAbilities = room.players[playerId].abilities;
-  if (!playerAbilities.smokeScreen || !playerAbilities.smokeScreen.active) {
-    return false;
-  }
-    // Check if this cell is covered by smoke screen
-  const smokePositions = playerAbilities.smokeScreen.positions || [];
-  return smokePositions.some(pos => pos.row === row && pos.col === col);
-};
-
-// Export aliases for backward compatibility
-export const activateNuke = executeNuke;
-export const activateScanner = executeScanner;
-export const activateHacker = executeHacker;
-export const activateReinforcement = executeReinforce;
-export const activateAnnihilate = executeAnnihilate;
-export const activateSalvo = executeSalvo;
-export const activatePrecisionStrike = executePrecisionStrike;
-export const activatePrecisionStrikeFollowUp = executePrecisionStrikeFollowUp;
-export const activateVolleyFire = executeVolleyFire;
-export const activateTorpedoRun = executeTorpedoRun;
-export const activateTorpedoRunShot = executeTorpedoRunShot;
-export const activateDecoyShot = executeDecoyShot;
-export const activateDecoyShotSecond = executeDecoyShotSecond;
-export const activateBarrage = executeBarrage;
-export const activateDepthCharge = executeDepthCharge;
-export const activateEmpBlast = executeEmpBlast;
-export const activatePinpointStrike = executePinpointStrike;
-export const activateChainReaction = executeChainReaction;
-export const activateChainReactionShot = executeChainReactionShot;
-export const activateCloak = executeCloak;
-export const activateReinforce = executeReinforce;
-export const activateMinefield = executeMinefield;
-export const activateSonarPulse = executeSonarPulse;
-export const activateIntelLeak = executeIntelLeak;
-export const activateSpotterPlane = executeSpotterPlane;
-export const activateReconnaissanceFlyby = executeReconnaissanceFlyby;
-export const activateTargetAnalysis = executeTargetAnalysis;
-export const activateWeatherForecast = executeWeatherForecast;
-export const activateCommunicationsIntercept = executeCommunicationsIntercept;
-
-// Missing ability exports that have implementations
-export const activateEvasiveManeuvers = executeEvasiveManeuvers;
-export const activateEmergencyPatch = executeEmergencyPatch;
-export const activateSmokeScreen = executeSmokeScreen;
-export const activateDefensiveNet = executeDefensiveNet;
-export const activateSonarDecoy = executeSonarDecoy;
-export const activateBraceForImpact = executeBraceForImpact;
-
-// Install-based abilities exports
-export const activateCounter = installCounter;
-export const activateJam = installJam;
-
-// New ability exports
-export const activateTacticalReadout = executeTacticalReadout;
-export const activateJammingSignal = executeJammingSignal;
-export const activateOpponentsPlaybook = executeOpponentsPlaybook;
