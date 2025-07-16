@@ -9,10 +9,8 @@ const GameRoom_Mobile = ({
   gameData,
   playerAbilities,
   activeAbility,
-  reinforcementVertical,
   annihilateVertical,
   setActiveAbility,
-  setReinforcementVertical,
   setAnnihilateVertical,
   onNavigateHome,
   // Game state props for progress display
@@ -124,14 +122,18 @@ const GameRoom_Mobile = ({
         setTurnTimeLeft(turnData.timeRemaining || 30);
         
         // If turn time runs out, trigger turn timeout
-        if (turnData.timeRemaining <= 0 && isMyTurn && !gameData?.gameOver) {
-          onTurnTimeout();
+        if (turnData.timeRemaining <= 0 && !gameData?.gameOver) {
+          // Only trigger timeout if this is actually the current player's turn
+          const currentPlayerId = localStorage.getItem('battleshipPlayerId');
+          if (gameData?.currentTurn === currentPlayerId) {
+            onTurnTimeout();
+          }
         }
       }
     });
     
     return () => unsubscribe();
-  }, [roomId, isMyTurn, gameData?.gameOver, onTurnTimeout]);
+  }, [roomId, isMyTurn, gameData?.gameOver, gameData?.currentTurn, onTurnTimeout]);
 
   // Initialize turn timer when turn changes
   useEffect(() => {
@@ -165,14 +167,18 @@ const GameRoom_Mobile = ({
           });
           
           if (newTimeRemaining <= 0) {
-            onTurnTimeout();
+            // Only trigger timeout if this is actually the current player's turn
+            const currentPlayerId = localStorage.getItem('battleshipPlayerId');
+            if (gameData?.currentTurn === currentPlayerId) {
+              onTurnTimeout();
+            }
           }
         }
       });
     }, 1000);
     
     return () => clearInterval(turnInterval);
-  }, [isMyTurn, isPaused, gameData?.gameOver, onTurnTimeout, roomId]);
+  }, [isMyTurn, isPaused, gameData?.gameOver, gameData?.currentTurn, onTurnTimeout, roomId]);
     // Format time as MM:SS
   const formatTime = (seconds) => {
     const mins = Math.floor(seconds / 60);
@@ -297,7 +303,6 @@ const GameRoom_Mobile = ({
               gridSize={gridSize}
               isPlayerGrid={false}
               activeAbility={activeAbility}
-              reinforcementVertical={reinforcementVertical}
               annihilateVertical={annihilateVertical}
               onCellClick={handleAttack}
               hackerResult={hackerResult}
@@ -314,8 +319,7 @@ const GameRoom_Mobile = ({
             gridSize={gridSize}
             isPlayerGrid={true}
             activeAbility={activeAbility}
-            reinforcementVertical={reinforcementVertical}
-            onCellClick={activeAbility === 'REINFORCEMENT' ? handleAttack : null}
+            onCellClick={null}
             playerData={{}}
           />
         </div>{/* Action Buttons - Right Side */}
@@ -344,8 +348,6 @@ const GameRoom_Mobile = ({
           abilities={playerAbilities}
           onUseAbility={setActiveAbility}
           activeAbility={activeAbility}
-          reinforcementVertical={reinforcementVertical}
-          onToggleReinforcementOrientation={() => setReinforcementVertical(!reinforcementVertical)}
           annihilateVertical={annihilateVertical}
           onToggleAnnihilateOrientation={() => setAnnihilateVertical(!annihilateVertical)}
           isMyTurn={isMyTurn}

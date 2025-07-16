@@ -134,17 +134,6 @@ export const joinRoomAsAdmin = async (roomId, adminId) => {
   }
 };
 
-// Admin function to execute God's Hand ability
-export const adminTriggerGodsHand = async (roomId, targetPlayerId, quadrantIndex) => {
-  try {
-    // Call the executeGodsHand function with isAdminTriggered = true
-    return await executeGodsHand(roomId, targetPlayerId, quadrantIndex, true);
-  } catch (error) {
-    console.error("Error executing God's Hand as admin:", error);
-    throw error;
-  }
-};
-
 // Add this function to your adminService.js file
 
 export const toggleGamePause = async (roomId) => {
@@ -168,6 +157,69 @@ export const toggleGamePause = async (roomId) => {
     return !isPaused; // Return the new pause state
   } catch (error) {
     console.error('Error toggling game pause:', error);
+    throw error;
+  }
+};
+
+// Admin function to execute God's Hand ability
+export const adminTriggerGodsHand = async (roomId, targetPlayerId, quadrantIndex) => {
+  try {
+    // Call the executeGodsHand function with isAdminTriggered = true
+    return await executeGodsHand(roomId, targetPlayerId, quadrantIndex, true);
+  } catch (error) {
+    console.error("Error executing God's Hand as admin:", error);
+    throw error;
+  }
+};
+
+// Admin function to manually declare a winner
+export const adminDeclareWinner = async (roomId, winnerId, adminId) => {
+  try {
+    const roomRef = ref(database, `rooms/${roomId}`);
+    const snapshot = await get(roomRef);
+    
+    if (!snapshot.exists()) {
+      throw new Error('Room not found');
+    }
+    
+    const room = snapshot.val();
+    
+    // Verify admin permissions
+    if (room.admin !== adminId) {
+      throw new Error('Unauthorized: Only the room admin can declare winners');
+    }
+    
+    // Verify the winner is a valid player
+    if (!room.players[winnerId]) {
+      throw new Error('Invalid winner: Player not found in room');
+    }
+    
+    // Update game state
+    const updates = {};
+    updates[`rooms/${roomId}/gameOver`] = true;
+    updates[`rooms/${roomId}/winner`] = winnerId;
+    updates[`rooms/${roomId}/status`] = 'completed';
+    updates[`rooms/${roomId}/endedAt`] = Date.now();
+    updates[`rooms/${roomId}/endReason`] = 'ADMIN_DECLARED';
+    
+    // Record the admin action
+    updates[`rooms/${roomId}/moves/${Date.now()}`] = {
+      type: 'admin_action',
+      action: 'DECLARE_WINNER',
+      adminId,
+      winnerId,
+      timestamp: Date.now()
+    };
+    
+    await update(ref(database), updates);
+    
+    return {
+      success: true,
+      winnerId,
+      winnerName: room.players[winnerId].name || winnerId
+    };
+  } catch (error) {
+    console.error('Error declaring winner as admin:', error);
     throw error;
   }
 };

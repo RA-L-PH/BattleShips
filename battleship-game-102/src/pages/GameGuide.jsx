@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ABILITIES } from '../services/abilityService';
+import googleSheetsService from '../services/googleSheetsService';
 import { 
   FaHome, 
   FaCrosshairs, 
@@ -14,12 +15,27 @@ import {
   FaInfoCircle,
   FaBolt,
   FaFire,
-  FaBullseye
+  FaBullseye,
+  FaLightbulb,
+  FaPaperPlane
 } from 'react-icons/fa';
 
 const GameGuide = () => {
   const navigate = useNavigate();
   const [activeSection, setActiveSection] = useState('overview');
+  const [abilityForm, setAbilityForm] = useState({
+    name: '',
+    type: 'attack',
+    description: '',
+    difficulty: 'easy',
+    submitterName: '',
+    submitterEmail: ''
+  });
+  const [submissionState, setSubmissionState] = useState({
+    isSubmitting: false,
+    message: '',
+    isSuccess: false
+  });
 
   // Group abilities by type
   const abilityTypes = {
@@ -28,9 +44,9 @@ const GameGuide = () => {
     support: []
   };
 
-  // Filter out GODS_HAND (admin only) and populate ability types
+  // Populate ability types
   Object.entries(ABILITIES).forEach(([key, ability]) => {
-    if (key !== 'GODS_HAND' && ability.type in abilityTypes) {
+    if (ability.type in abilityTypes) {
       abilityTypes[ability.type].push({
         key,
         ...ability
@@ -43,7 +59,8 @@ const GameGuide = () => {
     { id: 'modes', title: 'Game Modes', icon: FaUsers },
     { id: 'gameplay', title: 'How to Play', icon: FaInfoCircle },
     { id: 'abilities', title: 'Special Abilities', icon: FaBolt },
-    { id: 'admin', title: 'Admin Guide', icon: FaCrown }
+    { id: 'admin', title: 'Admin Guide', icon: FaCrown },
+    { id: 'ideas', title: 'Suggest Abilities', icon: FaLightbulb }
   ];
 
   const renderSection = () => {
@@ -200,7 +217,7 @@ const GameGuide = () => {
                 <div className="text-gray-300 space-y-2">
                   <p>• Spread your ships to avoid cluster damage from abilities</p>
                   <p>• Save defensive abilities for critical moments</p>
-                  <p>• Use support abilities early to gather intelligence</p>
+                  <p>• Use recon abilities early to gather intelligence</p>
                   <p>• Watch the turn timer and plan your moves quickly</p>
                   <p>• Coordinate attacks with special abilities for maximum impact</p>
                 </div>
@@ -236,11 +253,11 @@ const GameGuide = () => {
                 <div className={`p-4 rounded-t-lg ${
                   type === 'attack' ? 'bg-red-900/40 border-b border-red-500/30' : 
                   type === 'defense' ? 'bg-blue-900/40 border-b border-blue-500/30' : 
-                  'bg-yellow-900/40 border-b border-yellow-500/30'
+                  'bg-green-900/40 border-b border-green-500/30'
                 }`}>
                   <h4 className={`text-xl font-bold uppercase flex items-center gap-2 ${
                     type === 'attack' ? 'text-red-400' : 
-                    type === 'defense' ? 'text-blue-400' : 'text-yellow-400'
+                    type === 'defense' ? 'text-blue-400' : 'text-green-400'
                   }`}>
                     {type === 'attack' ? <FaCrosshairs /> : 
                      type === 'defense' ? <FaShieldAlt /> : <FaEye />}
@@ -271,16 +288,6 @@ const GameGuide = () => {
               </div>
             ))}
 
-            <div className="bg-purple-900/30 p-6 rounded-lg border border-purple-500/30">
-              <h4 className="text-xl font-bold text-purple-400 mb-4">God's Hand (Admin Special)</h4>
-              <p className="text-gray-300 mb-3">
-                A devastating admin-only ability that can destroy an entire 4x4 quadrant of the opponent's grid.
-              </p>
-              <div className="text-red-400 text-sm">
-                <strong>⚠️ Note:</strong> This ability is only available to admins during supervised games 
-                and is used for special events or to resolve game situations.
-              </div>
-            </div>
           </div>
         );
 
@@ -353,7 +360,7 @@ const GameGuide = () => {
                     <li>• Grant abilities to players</li>
                     <li>• Pause/resume games</li>
                     <li>• Monitor player moves in real-time</li>
-                    <li>• Use God's Hand ability for special events</li>
+                    <li>• Monitor and manage game progression</li>
                     <li>• End games if necessary</li>
                   </ul>
                 </div>
@@ -368,6 +375,240 @@ const GameGuide = () => {
                   </ul>
                 </div>
               </div>
+            </div>
+          </div>
+        );
+
+      case 'ideas':
+        return (
+          <div className="space-y-6">
+            <h3 className="text-2xl font-bold text-white mb-6">Suggest New Abilities</h3>
+            
+            <div className="bg-gradient-to-r from-purple-900/30 to-pink-900/30 p-6 rounded-lg border border-purple-500/30">
+              <div className="flex items-center gap-3 mb-4">
+                <FaLightbulb className="text-yellow-400 text-xl" />
+                <h4 className="text-xl font-bold text-white">Have an Ability Idea?</h4>
+              </div>
+              <p className="text-gray-300 mb-4">
+                We're always looking for creative new abilities to enhance the battleship experience! 
+                Share your ideas and they might be implemented in future updates.
+              </p>
+            </div>
+
+            <div className="bg-gray-800 p-6 rounded-lg border border-gray-600">
+              <form 
+                className="space-y-6"
+                onSubmit={async (e) => {
+                  e.preventDefault();
+                  setSubmissionState({ isSubmitting: true, message: '', isSuccess: false });
+                  
+                  try {
+                    // Validate the form data
+                    const validation = googleSheetsService.validateSuggestion(abilityForm);
+                    if (!validation.isValid) {
+                      throw new Error(validation.errors[0]);
+                    }
+                    
+                    // Submit to Google Sheets
+                    const result = await googleSheetsService.submitSuggestion(abilityForm);
+                    
+                    setSubmissionState({ 
+                      isSubmitting: false, 
+                      message: `Thank you! Your suggestion has been submitted successfully. ${result.totalSuggestions ? `Total suggestions: ${result.totalSuggestions}` : ''}`, 
+                      isSuccess: true 
+                    });
+                    
+                    // Reset form on success
+                    setAbilityForm({
+                      name: '',
+                      type: 'attack',
+                      description: '',
+                      difficulty: 'easy',
+                      submitterName: '',
+                      submitterEmail: ''
+                    });
+                    
+                  } catch (error) {
+                    console.error('Submission failed:', error);
+                    setSubmissionState({ 
+                      isSubmitting: false, 
+                      message: error.message || 'Failed to submit suggestion. Please try again.', 
+                      isSuccess: false 
+                    });
+                  }
+                }}
+              >
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div>
+                    <label className="block text-white font-bold mb-2">
+                      Ability Name *
+                    </label>
+                    <input
+                      type="text"
+                      value={abilityForm.name}
+                      onChange={(e) => setAbilityForm(prev => ({ ...prev, name: e.target.value }))
+                      }
+                      className="w-full p-3 bg-gray-700 text-white rounded border border-gray-600 focus:border-blue-500 focus:outline-none"
+                      placeholder="e.g., Lightning Strike"
+                      required
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-white font-bold mb-2">
+                      Ability Type *
+                    </label>
+                    <select
+                      value={abilityForm.type}
+                      onChange={(e) => setAbilityForm(prev => ({ ...prev, type: e.target.value }))
+                      }
+                      className="w-full p-3 bg-gray-700 text-white rounded border border-gray-600 focus:border-blue-500 focus:outline-none"
+                      required
+                    >
+                      <option value="attack">Attack</option>
+                      <option value="defense">Defense</option>
+                      <option value="support">Support</option>
+                      <option value="special">Special</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-white font-bold mb-2">
+                      Difficulty Level *
+                    </label>
+                    <select
+                      value={abilityForm.difficulty}
+                      onChange={(e) => setAbilityForm(prev => ({ ...prev, difficulty: e.target.value }))
+                      }
+                      className="w-full p-3 bg-gray-700 text-white rounded border border-gray-600 focus:border-blue-500 focus:outline-none"
+                      required
+                    >
+                      <option value="easy">Easy</option>
+                      <option value="medium">Medium</option>
+                      <option value="hard">Hard</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-white font-bold mb-2">
+                      Your Name
+                    </label>
+                    <input
+                      type="text"
+                      value={abilityForm.submitterName}
+                      onChange={(e) => setAbilityForm(prev => ({ ...prev, submitterName: e.target.value }))
+                      }
+                      className="w-full p-3 bg-gray-700 text-white rounded border border-gray-600 focus:border-blue-500 focus:outline-none"
+                      placeholder="Your name (optional)"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-white font-bold mb-2">
+                    Ability Description *
+                  </label>
+                  <textarea
+                    value={abilityForm.description}
+                    onChange={(e) => setAbilityForm(prev => ({ ...prev, description: e.target.value }))
+                    }
+                    className="w-full p-3 bg-gray-700 text-white rounded border border-gray-600 focus:border-blue-500 focus:outline-none"
+                    rows="4"
+                    placeholder="Describe how the ability works, what it does, and any special mechanics..."
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-white font-bold mb-2">
+                    Your Email (Optional)
+                  </label>
+                  <input
+                    type="email"
+                    value={abilityForm.submitterEmail}
+                    onChange={(e) => setAbilityForm(prev => ({ ...prev, submitterEmail: e.target.value }))
+                    }
+                    className="w-full p-3 bg-gray-700 text-white rounded border border-gray-600 focus:border-blue-500 focus:outline-none"
+                    placeholder="your.email@example.com (we'll contact you if we implement your idea!)"
+                  />
+                </div>
+
+                <div className="flex items-center justify-between">
+                  <div className="text-sm text-gray-400">
+                    * Required fields
+                  </div>
+                  <button
+                    type="submit"
+                    disabled={submissionState.isSubmitting}
+                    className={`px-6 py-3 rounded font-bold transition-all flex items-center gap-2 ${
+                      submissionState.isSubmitting 
+                        ? 'bg-gray-600 text-gray-300 cursor-not-allowed'
+                        : 'bg-gradient-to-r from-purple-600 to-pink-600 text-white hover:from-purple-700 hover:to-pink-700'
+                    }`}
+                  >
+                    <FaPaperPlane className={submissionState.isSubmitting ? 'animate-pulse' : ''} />
+                    {submissionState.isSubmitting ? 'Submitting...' : 'Submit Idea'}
+                  </button>
+                </div>
+
+                {/* Status Messages */}
+                {submissionState.message && (
+                  <div className={`border p-4 rounded-lg ${
+                    submissionState.isSuccess 
+                      ? 'bg-green-900/30 border-green-500 text-green-400'
+                      : 'bg-red-900/30 border-red-500 text-red-400'
+                  }`}>
+                    <div className="flex items-center gap-2">
+                      <FaInfoCircle />
+                      <strong>{submissionState.isSuccess ? 'Success!' : 'Submission Failed'}</strong>
+                    </div>
+                    <p className="mt-2">
+                      {submissionState.message}
+                    </p>
+                  </div>
+                )}
+              </form>
+            </div>
+
+            <div className="bg-gray-800 p-6 rounded-lg border border-gray-600">
+              <h4 className="text-xl font-bold text-white mb-4">Ability Design Guidelines</h4>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                  <h5 className="font-bold text-blue-400 mb-3">Good Ability Ideas:</h5>
+                  <ul className="text-gray-300 text-sm space-y-1">
+                    <li>• Clear, easy to understand mechanics</li>
+                    <li>• Balanced risk vs reward</li>
+                    <li>• Unique and creative effects</li>
+                    <li>• Fits the battleship theme</li>
+                    <li>• Adds strategic depth</li>
+                  </ul>
+                </div>
+                <div>
+                  <h5 className="font-bold text-red-400 mb-3">Avoid These:</h5>
+                  <ul className="text-gray-300 text-sm space-y-1">
+                    <li>• Overpowered or game-breaking effects</li>
+                    <li>• Too complex or confusing mechanics</li>
+                    <li>• Abilities that remove player agency</li>
+                    <li>• Duplicate existing functionality</li>
+                    <li>• Purely random effects</li>
+                  </ul>
+                </div>
+              </div>
+            </div>
+
+            <div className="bg-green-900/30 p-6 rounded-lg border border-green-500/30">
+              <h4 className="text-xl font-bold text-white mb-3 flex items-center gap-2">
+                <FaInfoCircle className="text-green-400" />
+                Community Suggestions
+              </h4>
+              <p className="text-gray-300 mb-3">
+                The best ability suggestions from our community get implemented in regular updates! 
+                Previous community contributions include enhanced visual effects, balance improvements, and new strategic options.
+              </p>
+              <p className="text-gray-400 text-sm">
+                All suggestions are reviewed by our development team. While we can't implement every idea, 
+                we deeply appreciate the creativity and passion of our community.
+              </p>
             </div>
           </div>
         );

@@ -6,27 +6,16 @@ const AbilityPanel = ({
   onUseAbility, 
   isMyTurn, 
   activeAbility,
-  reinforcementVertical,
-  onToggleReinforcementOrientation,
   annihilateVertical = false,
-  onToggleAnnihilateOrientation,
-  // New ability orientations
-  salvoVertical = false,
-  onToggleSalvoOrientation,
-  volleyFireVertical = false,
-  onToggleVolleyFireOrientation,
-  reconFlybyVertical = false,
-  onToggleReconFlybyOrientation
+  onToggleAnnihilateOrientation
 }) => {
   const [isPanelOpen, setIsPanelOpen] = useState(false);
   const [activeAbilities, setActiveAbilities] = useState([]);
   
   useEffect(() => {
-    // Calculate active abilities - filter out REINFORCEMENT and GODS_HAND
+    // Calculate active abilities
     const active = Object.entries(abilities || {})
       .filter(([key, data]) => 
-        key !== 'GODS_HAND' && 
-        key !== 'REINFORCEMENT' && 
         data.active && !data.used
       )
       .map(([key]) => ({ key, ...ABILITIES[key] }));
@@ -103,23 +92,7 @@ const AbilityPanel = ({
           </div>
         )}
 
-        {activeAbility && activeAbility === 'REINFORCEMENT' && (
-          <div className="mt-4 bg-gray-700 rounded p-3 animate-pulse">
-            <div className="text-white mb-2 text-sm">Ship Orientation:</div>
-            <button 
-              onClick={() => {
-                if (onToggleReinforcementOrientation) onToggleReinforcementOrientation();
-              }}
-              className="px-4 py-2 bg-blue-600 rounded text-white flex items-center justify-center gap-2 w-full text-sm no-double-tap-zoom"
-              style={{ touchAction: 'manipulation' }}
-            >
-              <span>{reinforcementVertical ? "Vertical" : "Horizontal"}</span>
-              <span className="inline-block text-xs">
-                {reinforcementVertical ? "│\n│" : "──"}
-              </span>
-            </button>
-          </div>
-        )}        {activeAbility && activeAbility === 'ANNIHILATE' && (
+        {activeAbility && activeAbility === 'ANNIHILATE' && (
           <div className="mt-4 bg-gray-700 rounded p-3 animate-pulse">
             <div className="text-white mb-2 text-sm">Attack Direction:</div>
             <div className="flex gap-2 justify-center">
@@ -154,75 +127,9 @@ const AbilityPanel = ({
           </div>
         )}
 
-        {/* Salvo Orientation Controls */}
-        {activeAbility && activeAbility === 'SALVO' && (
-          <div className="mt-4 bg-gray-700 rounded p-3 animate-pulse">
-            <div className="text-white mb-2 text-sm">Salvo Direction:</div>
-            <button 
-              onClick={() => {
-                if (onToggleSalvoOrientation) onToggleSalvoOrientation();
-              }}
-              className="px-4 py-2 bg-blue-600 rounded text-white flex items-center justify-center gap-2 w-full text-sm no-double-tap-zoom"
-              style={{ touchAction: 'manipulation' }}
-            >
-              <span>{salvoVertical ? "Vertical" : "Horizontal"}</span>
-              <span className="inline-block text-xs">
-                {salvoVertical ? "│\n│\n│" : "─ ─ ─"}
-              </span>
-            </button>
-            <p className="text-xs mt-1 text-gray-400">
-              {salvoVertical ? "Three shots downward" : "Three shots rightward"}
-            </p>
-          </div>
-        )}
-
-        {/* Volley Fire Orientation Controls */}
-        {activeAbility && activeAbility === 'VOLLEY_FIRE' && (
-          <div className="mt-4 bg-gray-700 rounded p-3 animate-pulse">
-            <div className="text-white mb-2 text-sm">Volley Fire Pattern:</div>
-            <button 
-              onClick={() => {
-                if (onToggleVolleyFireOrientation) onToggleVolleyFireOrientation();
-              }}
-              className="px-4 py-2 bg-blue-600 rounded text-white flex items-center justify-center gap-2 w-full text-sm no-double-tap-zoom"
-              style={{ touchAction: 'manipulation' }}
-            >
-              <span>{volleyFireVertical ? "3x1 Vertical" : "1x3 Horizontal"}</span>
-              <span className="inline-block text-xs">
-                {volleyFireVertical ? "│\n│\n│" : "─ ─ ─"}
-              </span>
-            </button>
-            <p className="text-xs mt-1 text-gray-400">
-              Simultaneous attack on 3 cells
-            </p>
-          </div>
-        )}
-
-        {/* Reconnaissance Flyby Orientation Controls */}
-        {activeAbility && activeAbility === 'RECONNAISSANCE_FLYBY' && (
-          <div className="mt-4 bg-gray-700 rounded p-3 animate-pulse">
-            <div className="text-white mb-2 text-sm">Flyby Direction:</div>
-            <button 
-              onClick={() => {
-                if (onToggleReconFlybyOrientation) onToggleReconFlybyOrientation();
-              }}
-              className="px-4 py-2 bg-blue-600 rounded text-white flex items-center justify-center gap-2 w-full text-sm no-double-tap-zoom"
-              style={{ touchAction: 'manipulation' }}
-            >
-              <span>{reconFlybyVertical ? "5x1 Vertical" : "1x5 Horizontal"}</span>
-              <span className="inline-block text-xs">
-                {reconFlybyVertical ? "│\n│\n│\n│\n│" : "─ ─ ─ ─ ─"}
-              </span>
-            </button>
-            <p className="text-xs mt-1 text-gray-400">
-              Count unique ships in 5-cell line
-            </p>
-          </div>
-        )}
-
         {activeAbility && (
           <div className="mt-4 text-yellow-300 text-xs sm:text-sm animate-pulse">
-            Click on the {activeAbility === 'REINFORCEMENT' ? 'your' : 'opponent\'s'} grid to use this ability
+            Click on the opponent's grid to use this ability
           </div>
         )}
       </div>

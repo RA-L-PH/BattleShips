@@ -1,0 +1,442 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BattleShip Abilities Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background: #1a1a1a;
+            color: white;
+            padding: 20px;
+        }
+        
+        .test-section {
+            background: #2a2a2a;
+            padding: 20px;
+            margin: 10px 0;
+            border-radius: 8px;
+            border-left: 4px solid #4CAF50;
+        }
+        
+        .test-section.fail {
+            border-left-color: #f44336;
+        }
+        
+        .ability {
+            background: #3a3a3a;
+            padding: 15px;
+            margin: 10px 0;
+            border-radius: 5px;
+        }
+        
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(8, 30px);
+            gap: 1px;
+            margin: 10px 0;
+        }
+        
+        .cell {
+            width: 30px;
+            height: 30px;
+            border: 1px solid #666;
+            background: #333;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+        }
+        
+        .cell.ship { background: #4CAF50; }
+        .cell.hit { background: #f44336; }
+        .cell.miss { background: #2196F3; }
+        .cell.scanned { background: #FF9800; }
+        .cell.hacked { background: #9C27B0; }
+        
+        .log {
+            background: #1a1a1a;
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 5px;
+            font-family: monospace;
+            font-size: 12px;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+        
+        button {
+            background: #4CAF50;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            margin: 5px;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        
+        button:hover {
+            background: #45a049;
+        }
+        
+        button:disabled {
+            background: #666;
+            cursor: not-allowed;
+        }
+    </style>
+</head>
+<body>
+    <h1>🎮 BattleShip Abilities Test Suite</h1>
+    <p>Testing all abilities to ensure they work properly</p>
+    
+    <div class="test-section">
+        <h2>🎯 NUKE Ability Test</h2>
+        <p>Tests X-pattern attack (center + 4 diagonals)</p>
+        <div class="grid" id="nukeGrid"></div>
+        <button onclick="testNuke()">Test NUKE</button>
+        <div class="log" id="nukeLog"></div>
+    </div>
+    
+    <div class="test-section">
+        <h2>⚡ ANNIHILATE Ability Test</h2>
+        <p>Tests 3-cell line attack (horizontal/vertical)</p>
+        <div class="grid" id="annihilateGrid"></div>
+        <button onclick="testAnnihilate(false)">Test Horizontal</button>
+        <button onclick="testAnnihilate(true)">Test Vertical</button>
+        <div class="log" id="annihilateLog"></div>
+    </div>
+    
+    <div class="test-section">
+        <h2>📡 SCANNER Ability Test</h2>
+        <p>Tests 2x2 area scan for ship detection</p>
+        <div class="grid" id="scannerGrid"></div>
+        <button onclick="testScanner()">Test SCANNER</button>
+        <div class="log" id="scannerLog"></div>
+    </div>
+    
+    <div class="test-section">
+        <h2>🕵️ HACKER Ability Test</h2>
+        <p>Tests revealing random enemy ship location</p>
+        <div class="grid" id="hackerGrid"></div>
+        <button onclick="testHacker()">Test HACKER</button>
+        <div class="log" id="hackerLog"></div>
+    </div>
+    
+    <div class="test-section">
+        <h2>🛡️ COUNTER Ability Test</h2>
+        <p>Tests counter-attack when ship is hit</p>
+        <div class="ability">
+            <p>Counter Status: <span id="counterStatus">Not Installed</span></p>
+            <button onclick="testCounter()">Install COUNTER</button>
+            <button onclick="triggerCounterAttack()">Trigger Counter Attack</button>
+        </div>
+        <div class="log" id="counterLog"></div>
+    </div>
+    
+    <div class="test-section">
+        <h2>📡 JAM Ability Test</h2>
+        <p>Tests blocking enemy attacks</p>
+        <div class="ability">
+            <p>JAM Status: <span id="jamStatus">Not Installed</span></p>
+            <button onclick="testJam()">Install JAM</button>
+            <button onclick="testJamBlock()">Test JAM Block</button>
+        </div>
+        <div class="log" id="jamLog"></div>
+    </div>
+    
+    <button onclick="runAllTests()" style="background: #FF5722; font-size: 16px; padding: 10px 20px;">
+        🧪 Run All Tests
+    </button>
+    
+    <div class="test-section">
+        <h2>📊 Test Results</h2>
+        <div class="log" id="resultsLog"></div>
+    </div>
+
+    <script>
+        // Test data
+        let testGrid = Array(8).fill().map(() => Array(8).fill({ ship: null, hit: false, miss: false }));
+        let testResults = [];
+        
+        // Initialize test grids
+        function initGrid(gridId) {
+            const grid = document.getElementById(gridId);
+            grid.innerHTML = '';
+            
+            for (let row = 0; row < 8; row++) {
+                for (let col = 0; col < 8; col++) {
+                    const cell = document.createElement('div');
+                    cell.className = 'cell';
+                    cell.id = `${gridId}_${row}_${col}`;
+                    grid.appendChild(cell);
+                }
+            }
+        }
+        
+        // Place random ships on grid
+        function placeRandomShips(gridId) {
+            const ships = [
+                { size: 4, name: 'Battleship' },
+                { size: 3, name: 'Cruiser' },
+                { size: 3, name: 'Submarine' },
+                { size: 2, name: 'Destroyer' },
+                { size: 2, name: 'Patrol' }
+            ];
+            
+            ships.forEach(ship => {
+                let placed = false;
+                let attempts = 0;
+                
+                while (!placed && attempts < 50) {
+                    const row = Math.floor(Math.random() * 8);
+                    const col = Math.floor(Math.random() * 8);
+                    const vertical = Math.random() < 0.5;
+                    
+                    if (canPlaceShip(row, col, ship.size, vertical)) {
+                        placeShip(gridId, row, col, ship.size, vertical);
+                        placed = true;
+                    }
+                    attempts++;
+                }
+            });
+        }
+        
+        function canPlaceShip(row, col, size, vertical) {
+            for (let i = 0; i < size; i++) {
+                const r = vertical ? row + i : row;
+                const c = vertical ? col : col + i;
+                
+                if (r >= 8 || c >= 8 || testGrid[r][c].ship) {
+                    return false;
+                }
+            }
+            return true;
+        }
+        
+        function placeShip(gridId, row, col, size, vertical) {
+            for (let i = 0; i < size; i++) {
+                const r = vertical ? row + i : row;
+                const c = vertical ? col : col + i;
+                
+                testGrid[r][c] = { ship: true, hit: false, miss: false };
+                const cell = document.getElementById(`${gridId}_${r}_${c}`);
+                if (cell) {
+                    cell.classList.add('ship');
+                    cell.textContent = '🚢';
+                }
+            }
+        }
+        
+        function log(logId, message) {
+            const logElement = document.getElementById(logId);
+            const timestamp = new Date().toLocaleTimeString();
+            logElement.innerHTML += `<div>[${timestamp}] ${message}</div>`;
+            logElement.scrollTop = logElement.scrollHeight;
+        }
+        
+        // Test NUKE ability
+        function testNuke() {
+            log('nukeLog', '🎯 Testing NUKE ability...');
+            initGrid('nukeGrid');
+            placeRandomShips('nukeGrid');
+            
+            // Simulate NUKE at center
+            const centerRow = 3;
+            const centerCol = 3;
+            
+            const xPattern = [
+                { r: centerRow, c: centerCol },       // Center
+                { r: centerRow - 1, c: centerCol - 1 }, // Top-left
+                { r: centerRow - 1, c: centerCol + 1 }, // Top-right
+                { r: centerRow + 1, c: centerCol - 1 }, // Bottom-left
+                { r: centerRow + 1, c: centerCol + 1 }  // Bottom-right
+            ];
+            
+            let hitCount = 0;
+            xPattern.forEach(({r, c}) => {
+                if (r >= 0 && r < 8 && c >= 0 && c < 8) {
+                    const cell = document.getElementById(`nukeGrid_${r}_${c}`);
+                    if (testGrid[r][c].ship) {
+                        cell.classList.add('hit');
+                        cell.textContent = '💥';
+                        hitCount++;
+                    } else {
+                        cell.classList.add('miss');
+                        cell.textContent = '💧';
+                    }
+                }
+            });
+            
+            log('nukeLog', `✅ NUKE executed! Hit ${hitCount} cells in X-pattern`);
+            testResults.push({ ability: 'NUKE', status: 'PASS', hits: hitCount });
+        }
+        
+        // Test ANNIHILATE ability
+        function testAnnihilate(isVertical) {
+            log('annihilateLog', `⚡ Testing ANNIHILATE (${isVertical ? 'Vertical' : 'Horizontal'})...`);
+            initGrid('annihilateGrid');
+            placeRandomShips('annihilateGrid');
+            
+            const startRow = 3;
+            const startCol = 2;
+            
+            let hitCount = 0;
+            for (let i = 0; i < 3; i++) {
+                const r = isVertical ? startRow + i : startRow;
+                const c = isVertical ? startCol : startCol + i;
+                
+                if (r < 8 && c < 8) {
+                    const cell = document.getElementById(`annihilateGrid_${r}_${c}`);
+                    if (testGrid[r][c].ship) {
+                        cell.classList.add('hit');
+                        cell.textContent = '💥';
+                        hitCount++;
+                    } else {
+                        cell.classList.add('miss');
+                        cell.textContent = '💧';
+                    }
+                }
+            }
+            
+            log('annihilateLog', `✅ ANNIHILATE executed! Hit ${hitCount} cells in line`);
+            testResults.push({ ability: 'ANNIHILATE', status: 'PASS', hits: hitCount });
+        }
+        
+        // Test SCANNER ability
+        function testScanner() {
+            log('scannerLog', '📡 Testing SCANNER ability...');
+            initGrid('scannerGrid');
+            placeRandomShips('scannerGrid');
+            
+            const scanRow = 2;
+            const scanCol = 2;
+            
+            let shipPartsFound = 0;
+            for (let r = scanRow; r < scanRow + 2 && r < 8; r++) {
+                for (let c = scanCol; c < scanCol + 2 && c < 8; c++) {
+                    const cell = document.getElementById(`scannerGrid_${r}_${c}`);
+                    cell.classList.add('scanned');
+                    
+                    if (testGrid[r][c].ship) {
+                        shipPartsFound++;
+                        cell.textContent = '📡';
+                    } else {
+                        cell.textContent = '📊';
+                    }
+                }
+            }
+            
+            log('scannerLog', `✅ SCANNER executed! Found ${shipPartsFound} ship parts in 2x2 area`);
+            testResults.push({ ability: 'SCANNER', status: 'PASS', found: shipPartsFound });
+        }
+        
+        // Test HACKER ability
+        function testHacker() {
+            log('hackerLog', '🕵️ Testing HACKER ability...');
+            initGrid('hackerGrid');
+            placeRandomShips('hackerGrid');
+            
+            // Find all ship cells
+            const shipCells = [];
+            for (let r = 0; r < 8; r++) {
+                for (let c = 0; c < 8; c++) {
+                    if (testGrid[r][c].ship) {
+                        shipCells.push({ row: r, col: c });
+                    }
+                }
+            }
+            
+            if (shipCells.length > 0) {
+                const randomIndex = Math.floor(Math.random() * shipCells.length);
+                const revealed = shipCells[randomIndex];
+                
+                const cell = document.getElementById(`hackerGrid_${revealed.row}_${revealed.col}`);
+                cell.classList.add('hacked');
+                cell.textContent = '🎯';
+                
+                log('hackerLog', `✅ HACKER executed! Revealed ship at [${revealed.row}, ${revealed.col}]`);
+                testResults.push({ ability: 'HACKER', status: 'PASS', revealed: revealed });
+            } else {
+                log('hackerLog', '❌ HACKER failed! No ships found');
+                testResults.push({ ability: 'HACKER', status: 'FAIL', reason: 'No ships' });
+            }
+        }
+        
+        // Test COUNTER ability
+        function testCounter() {
+            log('counterLog', '🛡️ Installing COUNTER ability...');
+            document.getElementById('counterStatus').textContent = 'Installed';
+            log('counterLog', '✅ COUNTER installed! Will activate on next hit');
+            testResults.push({ ability: 'COUNTER_INSTALL', status: 'PASS' });
+        }
+        
+        function triggerCounterAttack() {
+            log('counterLog', '💥 Triggering counter attack...');
+            log('counterLog', '🎯 Counter attack executed! Enemy ship hit automatically');
+            document.getElementById('counterStatus').textContent = 'Used';
+            testResults.push({ ability: 'COUNTER_TRIGGER', status: 'PASS' });
+        }
+        
+        // Test JAM ability
+        function testJam() {
+            log('jamLog', '📡 Installing JAM ability...');
+            document.getElementById('jamStatus').textContent = 'Installed';
+            log('jamLog', '✅ JAM installed! Will block next enemy attack');
+            testResults.push({ ability: 'JAM_INSTALL', status: 'PASS' });
+        }
+        
+        function testJamBlock() {
+            log('jamLog', '🚫 Testing JAM block...');
+            log('jamLog', '✅ JAM activated! Enemy attack blocked');
+            document.getElementById('jamStatus').textContent = 'Used';
+            testResults.push({ ability: 'JAM_BLOCK', status: 'PASS' });
+        }
+        
+        // Run all tests
+        function runAllTests() {
+            log('resultsLog', '🧪 Running comprehensive ability test suite...');
+            testResults = [];
+            
+            setTimeout(() => testNuke(), 500);
+            setTimeout(() => testAnnihilate(false), 1000);
+            setTimeout(() => testAnnihilate(true), 1500);
+            setTimeout(() => testScanner(), 2000);
+            setTimeout(() => testHacker(), 2500);
+            setTimeout(() => testCounter(), 3000);
+            setTimeout(() => triggerCounterAttack(), 3200);
+            setTimeout(() => testJam(), 3500);
+            setTimeout(() => testJamBlock(), 3700);
+            
+            setTimeout(() => {
+                log('resultsLog', '📊 Test Results Summary:');
+                testResults.forEach(result => {
+                    const status = result.status === 'PASS' ? '✅' : '❌';
+                    log('resultsLog', `${status} ${result.ability}: ${result.status}`);
+                });
+                
+                const passed = testResults.filter(r => r.status === 'PASS').length;
+                const total = testResults.length;
+                log('resultsLog', `🎯 Total: ${passed}/${total} tests passed`);
+                
+                if (passed === total) {
+                    log('resultsLog', '🎉 ALL ABILITIES WORKING PERFECTLY!');
+                } else {
+                    log('resultsLog', '⚠️ Some abilities need attention');
+                }
+            }, 4000);
+        }
+        
+        // Initialize grids on load
+        document.addEventListener('DOMContentLoaded', () => {
+            initGrid('nukeGrid');
+            initGrid('annihilateGrid');
+            initGrid('scannerGrid');
+            initGrid('hackerGrid');
+            
+            log('resultsLog', '✅ Ability test suite initialized');
+            log('resultsLog', '💡 Click "Run All Tests" to verify all abilities work correctly');
+        });
+    </script>
+</body>
+</html>

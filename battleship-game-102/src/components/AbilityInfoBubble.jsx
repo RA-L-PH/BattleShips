@@ -16,9 +16,9 @@ const AbilityInfoBubble = ({ playerAbilities }) => {
     support: []
   };
 
-  // Filter out GODS_HAND (admin only) and populate ability types
+  // Populate ability types
   Object.entries(ABILITIES).forEach(([key, ability]) => {
-    if (key !== 'GODS_HAND' && ability.type in abilityTypes) {
+    if (ability.type in abilityTypes) {
       const playerHasAbility = playerAbilities && 
         playerAbilities[key] && 
         playerAbilities[key].active;

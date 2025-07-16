@@ -14,72 +14,30 @@ import { makeMove, recordTurnTimeout } from '../services/gameService';
 import { getGridSize } from '../services/gameService';
 import { isMobileDevice } from '../utils/deviceDetect';
 import { 
-  activateNuke, 
-  activateScanner, 
-  activateHacker, 
-  activateReinforcement, 
-  activateAnnihilate,
+  executeNuke, 
+  executeScanner, 
+  executeHacker, 
+  executeAnnihilate,
   installCounter,
   installJam,
-  // New Attack abilities
-  activateSalvo,
-  activatePrecisionStrike,
-  activatePrecisionStrikeFollowUp,
-  activateVolleyFire,
-  activateTorpedoRun,
-  activateTorpedoRunShot,
-  activateDecoyShot,
-  activateDecoyShotSecond,
-  activateBarrage,
-  activateDepthCharge,
-  activateEmpBlast,
-  activatePinpointStrike,
-  activateChainReaction,
-  activateChainReactionShot,  // New Defense abilities
-  activateRepairCrew,
-  activateReinforce,
-  activateMinefield,
-  activateEvasiveManeuvers,
-  activateEmergencyPatch,
-  activateSmokeScreen,
-  activateDefensiveNet,
-  activateSonarDecoy,
-  activateBraceForImpact,
-  // New Support abilities
-  activateSonarPulse,
-  activateIntelLeak,
-  activateSpotterPlane,
-  activateReconnaissanceFlyby,
-  activateTargetAnalysis,
-  activateWeatherForecast,
-  activateCommunicationsIntercept,
-  activateTacticalReadout,
-  activateJammingSignal,
-  activateOpponentsPlaybook
+  ABILITIES
 } from '../services/abilityService';
 
 const GameRoom = () => {
   const { roomId } = useParams();
-  const navigate = useNavigate();  const [gameData, setGameData] = useState(null);
+  const navigate = useNavigate();
+  
+  const [gameData, setGameData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [playerId, setPlayerId] = useState(null);
   const [playerName, setPlayerName] = useState('');
   const [opponentName, setOpponentName] = useState('');
   const [isMyTurn, setIsMyTurn] = useState(false);
-  const [playerAbilities, setPlayerAbilities] = useState({});  const [activeAbility, setActiveAbility] = useState(null);
-  const [reinforcementVertical, setReinforcementVertical] = useState(false);
+  const [playerAbilities, setPlayerAbilities] = useState({});
+  const [activeAbility, setActiveAbility] = useState(null);
   const [annihilateVertical, setAnnihilateVertical] = useState(false);
   
-  // New ability state variables
-  const [salvoVertical, setSalvoVertical] = useState(false);
-  const [volleyFireVertical, setVolleyFireVertical] = useState(false);
-  const [barrageTargets, setBarrageTargets] = useState([]);
-  const [barrageStep, setBarrageStep] = useState(0);
-  const [awaitingPrecisionFollowUp, setAwaitingPrecisionFollowUp] = useState(false);
-  const [awaitingTorpedoShot, setAwaitingTorpedoShot] = useState(false);
-  const [awaitingDecoySecond, setAwaitingDecoySecond] = useState(false);
-  const [awaitingChainReaction, setAwaitingChainReaction] = useState(false);
-  const [reconFlybyVertical, setReconFlybyVertical] = useState(false);const [scanResult, setScanResult] = useState(null);
+  const [scanResult, setScanResult] = useState(null);
   const [hackerResult, setHackerResult] = useState(null);
   const [toast, setToast] = useState(null);
   const [isPaused, setIsPaused] = useState(false);
@@ -291,7 +249,8 @@ const GameRoom = () => {
         const winner = data.winner;
         const message = winner === playerId ? "🎉 You Won!" : "💀 You Lost!";
         setToast({ type: winner === playerId ? 'success' : 'error', message });
-          // Don't auto-navigate anymore - let players see the results
+        
+        // Don't auto-navigate anymore - let players see the results
         // They can manually navigate back to home when ready
       }
 
@@ -305,10 +264,10 @@ const GameRoom = () => {
       let result;
       switch (ability) {
         case 'NUKE':
-          result = await activateNuke(roomId, playerId, y, x);
+          result = await executeNuke(roomId, playerId, y, x);
           break;
         case 'SCANNER':
-          result = await activateScanner(roomId, playerId, y, x);
+          result = await executeScanner(roomId, playerId, y, x);
           if (result && result.shipCount !== undefined) {
             const colLabels = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'];
             const rowLabels = ['8', '7', '6', '5', '4', '3', '2', '1'];
@@ -321,279 +280,34 @@ const GameRoom = () => {
           }
           break;
         case 'HACKER':
-          await activateHacker(roomId, playerId);
-          break;
-        case 'REINFORCEMENT':
-          await activateReinforcement(roomId, playerId, y, x, reinforcementVertical);
+          result = await executeHacker(roomId, playerId);
+          if (result) {
+            const colLabels = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'];
+            const rowLabels = ['8', '7', '6', '5', '4', '3', '2', '1'];
+            const coordinate = `${colLabels[result.revealedCell.col]}${rowLabels[result.revealedCell.row]}`;
+            setToast({ 
+              type: 'info', 
+              message: `HACKER: Enemy ship found at ${coordinate}!` 
+            });
+            return;
+          }
           break;
         case 'ANNIHILATE':
-          await activateAnnihilate(roomId, playerId, y, x, annihilateVertical);
+          await executeAnnihilate(roomId, playerId, y, x, annihilateVertical);
           break;
         case 'COUNTER': {
-          await installCounter(roomId, playerId);
+          result = await installCounter(roomId, playerId);
           setToast({ type: 'success', message: 'COUNTER defense installed! Will activate when you take damage.' });
+          setActiveAbility(null); // Clear active ability after installation
           return; // Don't show generic success message
         }
         case 'JAM': {
-          await installJam(roomId, playerId);
+          result = await installJam(roomId, playerId);
           setToast({ type: 'success', message: 'JAM defense installed! Will block the next enemy attack.' });
+          setActiveAbility(null); // Clear active ability after installation
           return; // Don't show generic success message
         }
-          // New Attack Abilities
-        case 'SALVO':
-          result = await activateSalvo(roomId, playerId, y, x, salvoVertical);
-          break;
-        case 'PRECISION_STRIKE':
-          result = await activatePrecisionStrike(roomId, playerId, y, x);
-          if (result && result.awaitingFollowUp) {
-            setAwaitingPrecisionFollowUp(true);
-            setToast({ type: 'info', message: 'Precision Strike hit! Select an adjacent square for follow-up shot.' });
-            return;
-          }
-          break;
-        case 'VOLLEY_FIRE':
-          result = await activateVolleyFire(roomId, playerId, y, x, volleyFireVertical);
-          break;
-        case 'TORPEDO_RUN':
-          result = await activateTorpedoRun(roomId, playerId, reconFlybyVertical, reconFlybyVertical ? y : x);
-          if (result && result.awaitingFreeShot) {
-            setAwaitingTorpedoShot(true);
-            setToast({ 
-              type: 'info', 
-              message: `Torpedo Run scan: ${result.hasShip ? 'Ships detected!' : 'No ships found'} Select target for free shot.` 
-            });
-            return;
-          }
-          break;
-        case 'DECOY_SHOT':
-          result = await activateDecoyShot(roomId, playerId, y, x);
-          if (result && result.awaitingSecondShot) {
-            setAwaitingDecoySecond(true);
-            setToast({ type: 'info', message: 'Decoy Shot missed! Select target for second shot.' });
-            return;
-          }
-          break;
-        case 'BARRAGE':
-          if (barrageStep < 5) {
-            const newTargets = [...barrageTargets, { row: y, col: x }];
-            setBarrageTargets(newTargets);
-            setBarrageStep(barrageStep + 1);
-            if (newTargets.length === 5) {
-              result = await activateBarrage(roomId, playerId, newTargets);
-              setBarrageTargets([]);
-              setBarrageStep(0);
-            } else {
-              setToast({ type: 'info', message: `Barrage target ${newTargets.length}/5 selected. Select ${5 - newTargets.length} more targets.` });
-              return;
-            }
-          }
-          break;
-        case 'DEPTH_CHARGE':
-          result = await activateDepthCharge(roomId, playerId, y, x);
-          break;
-        case 'EMP_BLAST':
-          result = await activateEmpBlast(roomId, playerId, y, x);
-          if (result && result.hasShipInArea) {
-            setToast({ type: 'success', message: 'EMP Blast hit ships! Enemy Support abilities disrupted next turn.' });
-            return;
-          }
-          break;
-        case 'PINPOINT_STRIKE':
-          result = await activatePinpointStrike(roomId, playerId, y, x);
-          if (result && result.damageDealt > 1) {
-            setToast({ type: 'success', message: `Pinpoint Strike hit for ${result.damageDealt} damage!` });
-            return;
-          }
-          break;        case 'CHAIN_REACTION':
-          result = await activateChainReaction(roomId, playerId, y, x);
-          if (result && result.awaitingFreeShot) {
-            setAwaitingChainReaction(true);
-            setToast({ type: 'success', message: 'Chain Reaction destroyed a segment! Select target for free shot.' });
-            return;
-          }
-          break;
-          
-        // New Defense Abilities  
-        case 'REPAIR_CREW':
-          result = await activateRepairCrew(roomId, playerId, y, x);
-          setToast({ type: 'success', message: 'Ship square repaired successfully!' });
-          return;
-        case 'CLOAK':
-          // CLOAK needs special handling for ship selection
-          setToast({ type: 'info', message: 'Select a ship to cloak from enemy abilities.' });
-          return;
-        case 'REINFORCE':
-          result = await activateReinforce(roomId, playerId, y, x);
-          setToast({ type: 'success', message: 'Square reinforced! Protected for next turn.' });
-          return;
-        case 'MINEFIELD':
-          result = await activateMinefield(roomId, playerId, y, x);
-          setToast({ type: 'success', message: 'Minefield deployed! 2x2 area will deal +1 damage.' });
-          return;
-          
-        // New Support Abilities
-        case 'SONAR_PULSE':
-          result = await activateSonarPulse(roomId, playerId, y, x);
-          if (result) {
-            setToast({ 
-              type: 'info', 
-              message: `Sonar Pulse: ${result.hasShip ? 'Ships detected' : 'No ships found'} in 3x3 area` 
-            });
-            return;
-          }
-          break;
-        case 'INTEL_LEAK':
-          result = await activateIntelLeak(roomId, playerId);
-          if (result) {
-            setToast({ 
-              type: 'info', 
-              message: `Intel Leak: Enemy ${result.shipName} is oriented ${result.orientation}` 
-            });
-            return;
-          }
-          break;
-        case 'SPOTTER_PLANE':
-          result = await activateSpotterPlane(roomId, playerId, y, x);
-          if (result) {
-            setToast({ 
-              type: 'info', 
-              message: `Spotter Plane: ${result.hasAdjacentShip ? 'Ship detected' : 'No ships'} adjacent to target` 
-            });
-            return;
-          }
-          break;        case 'RECONNAISSANCE_FLYBY':
-          result = await activateReconnaissanceFlyby(roomId, playerId, y, x, reconFlybyVertical);
-          if (result) {
-            setToast({ 
-              type: 'info', 
-              message: `Reconnaissance: ${result.uniqueShipCount} unique ships found in line` 
-            });
-            return;
-          }
-          break;
-        case 'TARGET_ANALYSIS':
-          result = await activateTargetAnalysis(roomId, playerId, y, x);
-          if (result) {
-            setToast({ 
-              type: 'info', 
-              message: `Target Analysis: Ship has ${result.currentHealth}/${result.totalHealth} health remaining` 
-            });
-            return;
-          }
-          break;
-        case 'WEATHER_FORECAST':
-          result = await activateWeatherForecast(roomId, playerId, y, x);
-          if (result) {
-            setToast({ 
-              type: 'info', 
-              message: `Weather Forecast: Next shot will ${result.willHit ? 'HIT' : 'MISS'}` 
-            });
-            return;
-          }
-          break;
-        case 'COMMUNICATIONS_INTERCEPT':
-          result = await activateCommunicationsIntercept(roomId, playerId);
-          if (result) {
-            setToast({ 
-              type: 'info', 
-              message: `Communications Intercept: ${result.infoResult}` 
-            });
-            return;
-          }          break;
-          
-        // Additional Defense Abilities
-        case 'EVASIVE_MANEUVERS':
-          result = await activateEvasiveManeuvers(roomId, playerId);
-          if (result) {
-            setToast({ 
-              type: 'success', 
-              message: 'Evasive Maneuvers activated! Next incoming attack has reduced accuracy.' 
-            });
-            return;
-          }
-          break;
-        case 'EMERGENCY_PATCH':
-          result = await activateEmergencyPatch(roomId, playerId, y, x);
-          if (result) {
-            setToast({ 
-              type: 'success', 
-              message: `Emergency Patch: Ship segment health increased by ${result.healthGained}!` 
-            });
-            return;
-          }
-          break;
-        case 'SMOKE_SCREEN':
-          result = await activateSmokeScreen(roomId, playerId, y, x);
-          if (result) {
-            setToast({ 
-              type: 'success', 
-              message: 'Smoke Screen deployed! 3x3 area obscured from enemy detection.' 
-            });
-            return;
-          }
-          break;
-        case 'DEFENSIVE_NET':
-          result = await activateDefensiveNet(roomId, playerId, y, x);
-          if (result) {
-            setToast({ 
-              type: 'success', 
-              message: 'Defensive Net deployed! Ships in area gain damage resistance.' 
-            });
-            return;
-          }
-          break;
-        case 'SONAR_DECOY':
-          result = await activateSonarDecoy(roomId, playerId, y, x);
-          if (result) {
-            setToast({ 
-              type: 'success', 
-              message: 'Sonar Decoy placed! Will confuse enemy detection abilities.' 
-            });
-            return;
-          }
-          break;
-        case 'BRACE_FOR_IMPACT':
-          result = await activateBraceForImpact(roomId, playerId);
-          if (result) {
-            setToast({ 
-              type: 'success', 
-              message: 'Brace for Impact! All ships gain temporary damage reduction.' 
-            });
-            return;
-          }
-          break;
-          
-        // Intelligence Gathering Abilities
-        case 'TACTICAL_READOUT':
-          result = await activateTacticalReadout(roomId, playerId);
-          if (result) {
-            setToast({ 
-              type: 'info', 
-              message: `Tactical Readout: Enemy's last ability was ${result.lastAbilityType || 'unknown'} type` 
-            });
-            return;
-          }
-          break;
-        case 'JAMMING_SIGNAL':
-          result = await activateJammingSignal(roomId, playerId);
-          if (result) {
-            setToast({ 
-              type: 'success', 
-              message: 'Jamming Signal active! Enemy Scanner/Hacker abilities disabled next turn.' 
-            });
-            return;
-          }
-          break;
-        case 'OPPONENTS_PLAYBOOK':
-          result = await activateOpponentsPlaybook(roomId, playerId);
-          if (result) {
-            setToast({ 
-              type: 'info', 
-              message: `Opponent's Playbook: Last offensive ability was ${result.lastOffensiveAbility || 'unknown'}` 
-            });
-            return;
-          }
-          break;
+
           
         default:
           throw new Error('Invalid ability');
@@ -610,53 +324,6 @@ const GameRoom = () => {
     if (!isMyTurn || isPaused) return;
     
     try {
-      // Handle follow-up shots for multi-step abilities
-      if (awaitingPrecisionFollowUp) {
-        await activatePrecisionStrikeFollowUp(roomId, playerId, y, x);
-        setAwaitingPrecisionFollowUp(false);
-        setToast({ type: 'success', message: 'Precision Strike follow-up completed!' });
-        return;
-      }
-      
-      if (awaitingTorpedoShot) {
-        await activateTorpedoRunShot(roomId, playerId, y, x);
-        setAwaitingTorpedoShot(false);
-        setToast({ type: 'success', message: 'Torpedo Run free shot completed!' });
-        return;
-      }
-      
-      if (awaitingDecoySecond) {
-        await activateDecoyShotSecond(roomId, playerId, y, x);
-        setAwaitingDecoySecond(false);
-        setToast({ type: 'success', message: 'Decoy Shot second shot completed!' });
-        return;
-      }
-      
-      if (awaitingChainReaction) {
-        await activateChainReactionShot(roomId, playerId, y, x);
-        setAwaitingChainReaction(false);
-        setToast({ type: 'success', message: 'Chain Reaction free shot completed!' });
-        return;
-      }
-      
-      // Handle Barrage multi-target selection
-      if (activeAbility === 'BARRAGE' && barrageStep < 5) {
-        const newTargets = [...barrageTargets, { row: y, col: x }];
-        setBarrageTargets(newTargets);
-        setBarrageStep(barrageStep + 1);
-        
-        if (newTargets.length === 5) {
-          await activateBarrage(roomId, playerId, newTargets);
-          setBarrageTargets([]);
-          setBarrageStep(0);
-          setActiveAbility(null);
-          setToast({ type: 'success', message: 'Barrage attack completed!' });
-        } else {
-          setToast({ type: 'info', message: `Barrage target ${newTargets.length}/5 selected. Select ${5 - newTargets.length} more targets.` });
-        }
-        return;
-      }
-      
       // Normal ability or attack handling
       if (activeAbility) {
         await handleAbilityActivation(x, y, activeAbility);
@@ -764,19 +431,7 @@ const GameRoom = () => {
     abilities: playerAbilities, // Fix prop name for GameRoom_Desktop
     playerAbilities, // Keep this for GameRoom_Mobile compatibility
     activeAbility,
-    reinforcementVertical,
     annihilateVertical,
-    // New ability orientation states
-    salvoVertical,
-    volleyFireVertical,
-    reconFlybyVertical,
-    // Multi-step ability states
-    barrageTargets,
-    barrageStep,
-    awaitingPrecisionFollowUp,
-    awaitingTorpedoShot,
-    awaitingDecoySecond,
-    awaitingChainReaction,
     hackerResult,
     isPaused,
     gridSize,
@@ -793,19 +448,7 @@ const GameRoom = () => {
     handleAttack,
     onUseAbility: setActiveAbility, // Add missing ability handler
     setActiveAbility,
-    setReinforcementVertical,
-    setAnnihilateVertical,
-    // New ability orientation setters
-    setSalvoVertical,
-    setVolleyFireVertical,
-    setReconFlybyVertical,
-    // Multi-step ability setters
-    setBarrageTargets,
-    setBarrageStep,
-    setAwaitingPrecisionFollowUp,
-    setAwaitingTorpedoShot,
-    setAwaitingDecoySecond,
-    setAwaitingChainReaction,    // Navigation and sharing handlers
+    setAnnihilateVertical,    // Navigation and sharing handlers
     handleNavigateHome,
     handleShareCode,
     onNavigateHome: handleNavigateHome, // For GameRoom_Mobile compatibility

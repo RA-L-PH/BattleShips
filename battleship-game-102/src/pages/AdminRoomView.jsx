@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { getDatabase, ref, onValue, update } from 'firebase/database';
-import { startGame, endGame, adminTriggerGodsHand } from '../services/adminService';
+import { startGame, endGame, adminTriggerGodsHand, adminDeclareWinner } from '../services/adminService';
 import GameBoard from '../components/GameBoard';
 import { ABILITIES, grantAbility } from '../services/abilityService';
-import { FaExchangeAlt, FaCrosshairs, FaShieldAlt, FaPlay, FaPause } from 'react-icons/fa';
+import { FaExchangeAlt, FaCrosshairs, FaShieldAlt, FaPlay, FaPause, FaCrown } from 'react-icons/fa';
 
 const AdminRoomView = () => {
   const { roomId } = useParams();
@@ -14,7 +14,6 @@ const AdminRoomView = () => {
   const [loading, setLoading] = useState(true);
   const [switchPositions, setSwitchPositions] = useState(false);
   const [counterMoves, setCounterMoves] = useState([]);
-  const [showGodsHandControls, setShowGodsHandControls] = useState(false);
   const [godsHandTargetPlayer, setGodsHandTargetPlayer] = useState(null);
   const [pendingSettings, setPendingSettings] = useState({});
   const adminId = localStorage.getItem('adminId');
@@ -107,23 +106,6 @@ const AdminRoomView = () => {
       await grantAbility(roomId, playerId, abilityKey);
     } catch (err) {
       setError(err.message);
-    }
-  };
-
-  const handleGodsHandActivation = async (playerIndex, quadrantIndex) => {
-    try {
-      if (!players[playerIndex]) return;
-      
-      const targetPlayerId = Object.keys(room.players)[playerIndex];
-      const opponentId = Object.keys(room.players).find(id => id !== targetPlayerId);
-      
-      if (!targetPlayerId || !opponentId) return;
-      
-      await adminTriggerGodsHand(roomId, targetPlayerId, quadrantIndex);
-      setShowGodsHandControls(false);
-      // Show success message or toast
-    } catch (error) {
-      setError(error.message);
     }
   };
 
@@ -258,6 +240,31 @@ const AdminRoomView = () => {
     }
   };
 
+  const handleGodsHandActivation = async (targetPlayerId, quadrantIndex) => {
+    try {
+      if (!targetPlayerId || !room.players[targetPlayerId]) return;
+      
+      const opponentId = Object.keys(room.players).find(id => id !== targetPlayerId);
+      
+      if (!opponentId) return;
+      
+      await adminTriggerGodsHand(roomId, opponentId, quadrantIndex);
+      setGodsHandTargetPlayer(null);
+      setError(null); // Clear any previous errors
+    } catch (error) {
+      setError(error.message);
+    }
+  };
+
+  const handleDeclareWinner = async (winnerId) => {
+    try {
+      await adminDeclareWinner(roomId, winnerId, adminId);
+      setError(null);
+    } catch (error) {
+      setError(error.message);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gray-900 p-8">
       <div className="max-w-6xl mx-auto">
@@ -377,7 +384,7 @@ const AdminRoomView = () => {
                 <ul className="list-disc list-inside text-sm mt-1">
                   <li>Each player can have up to 3 easy abilities active at once</li>
                   <li>Abilities can only be used once per game (no repeating)</li>
-                  <li>Players can have one special ability (God's Hand) per game</li>
+                  <li>Players have three abilities (one from each category) per game</li>
                   <li>JAM ability lasts for 2 rounds</li>
                   <li>Using an ability counts as a turn</li>
                 </ul>
@@ -414,7 +421,7 @@ const AdminRoomView = () => {
                             </tr>
                           </thead>
                           <tbody>
-                            {['attack', 'defense', 'support', 'special'].map(abilityType => (
+                            {['attack', 'defense', 'support'].map(abilityType => (
                               <React.Fragment key={`${player.playerId}-${abilityType}`}>
                                 {/* Type header row */}
                                 <tr className="border-b border-gray-700 bg-gray-800">
@@ -423,7 +430,7 @@ const AdminRoomView = () => {
                                     className={`py-2 px-3 font-bold text-sm uppercase text-center ${
                                       abilityType === 'attack' ? 'text-red-400' : 
                                       abilityType === 'defense' ? 'text-blue-400' : 
-                                      abilityType === 'support' ? 'text-yellow-400' : 'text-purple-400'
+                                      abilityType === 'support' ? 'text-yellow-400' : 'text-gray-400'
                                     }`}
                                   >
                                     {abilityType} Abilities
@@ -432,7 +439,6 @@ const AdminRoomView = () => {
                                 
                                 {/* Ability rows */}
                                 {Object.entries(ABILITIES)
-                                  .filter(([key, _]) => key !== 'GODS_HAND')  // Filter out GODS_HAND
                                   .filter(([_, ability]) => ability.type === abilityType)
                                   .map(([key, ability]) => {
                                     const playerAbility = player.abilities?.[key];
@@ -486,7 +492,7 @@ const AdminRoomView = () => {
                                                 text-white text-xs px-3 py-1 rounded hover:opacity-90 transition-colors
                                                 ${abilityType === 'attack' ? 'bg-red-600 hover:bg-red-700' : 
                                                   abilityType === 'defense' ? 'bg-blue-600 hover:bg-blue-700' : 
-                                                  abilityType === 'support' ? 'bg-yellow-600 hover:bg-yellow-700' : 'bg-purple-600 hover:bg-purple-700'}
+                                                  abilityType === 'support' ? 'bg-yellow-600 hover:bg-yellow-700' : 'bg-gray-600 hover:bg-gray-700'}
                                               `}
                                             >
                                               Grant
@@ -512,66 +518,116 @@ const AdminRoomView = () => {
             </div>
           </div>
           
+          {/* God's Hand Admin Controls - Only during active games */}
           {gameStarted && !gameOver && (
-            <div className="mb-8 bg-gray-800 p-4 rounded-lg">
-              <h3 className="text-xl font-bold text-white mb-4">Admin Special: God's Hand</h3>
-              
-              {!showGodsHandControls ? (
-                <button
-                  onClick={() => setShowGodsHandControls(true)}
-                  className="px-4 py-2 bg-purple-600 text-white rounded hover:bg-purple-700"
-                >
-                  Activate God's Hand
-                </button>
-              ) : (
-                <div className="space-y-4">
-                  <p className="text-gray-300">Select which player will be credited with using God's Hand:</p>
-                  <div className="flex gap-4">
-                    {players.map((player, index) => (
+            <div className="mt-8">
+              <h2 className="text-2xl font-bold text-white mb-4 flex items-center gap-2">
+                <FaCrown className="text-purple-400" />
+                God's Hand (Admin Only)
+              </h2>
+              <div className="bg-gray-700 p-4 rounded-lg border border-purple-500">
+                <div className="text-white mb-4">
+                  <p className="text-purple-300 font-semibold">Admin Power: Destroy entire 4x4 quadrants</p>
+                  <p className="text-sm text-gray-300 mt-1">Select a player, then choose which quadrant to destroy on their opponent's grid</p>
+                </div>
+                
+                {!godsHandTargetPlayer ? (
+                  <div>
+                    <h3 className="text-white font-bold mb-3">Select Target Player:</h3>
+                    <div className="flex gap-3">
+                      {players.map((player, index) => (
+                        <button
+                          key={player.playerId}
+                          onClick={() => setGodsHandTargetPlayer(player.playerId)}
+                          className="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg transition-colors flex items-center gap-2"
+                        >
+                          <FaCrosshairs />
+                          Target {player.name}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                ) : (
+                  <div>
+                    <div className="mb-4">
+                      <h3 className="text-white font-bold mb-2">
+                        Targeting: {players.find(p => p.playerId === godsHandTargetPlayer)?.name}
+                      </h3>
+                      <p className="text-sm text-gray-300">
+                        Select which 4x4 quadrant to destroy on their opponent's grid:
+                      </p>
+                    </div>
+                    
+                    <div className="flex flex-col gap-4">
+                      {/* 2x2 Grid of Quadrants with labels */}
+                      <div className="text-center">
+                        <div className="text-xs text-gray-400 mb-2">
+                          8x8 Grid divided into 4x4 quadrants:
+                        </div>
+                        <div className="grid grid-cols-2 gap-2 max-w-xs mx-auto">
+                          {[
+                            { index: 0, label: 'Q1', position: 'Top-Left', coords: 'A1-D4' },
+                            { index: 1, label: 'Q2', position: 'Top-Right', coords: 'E1-H4' },
+                            { index: 2, label: 'Q3', position: 'Bottom-Left', coords: 'A5-D8' },
+                            { index: 3, label: 'Q4', position: 'Bottom-Right', coords: 'E5-H8' }
+                          ].map((quadrant) => (
+                            <button
+                              key={quadrant.index}
+                              onClick={() => handleGodsHandActivation(godsHandTargetPlayer, quadrant.index)}
+                              className="bg-red-600 hover:bg-red-700 text-white p-3 rounded-lg text-sm font-bold transition-colors border-2 border-red-500 hover:border-red-300 flex flex-col items-center"
+                            >
+                              <div className="text-lg">{quadrant.label}</div>
+                              <div className="text-xs opacity-75">{quadrant.position}</div>
+                              <div className="text-xs opacity-60">{quadrant.coords}</div>
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                      
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => setGodsHandTargetPlayer(null)}
+                          className="bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded transition-colors"
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+          
+          {/* Admin Declare Winner - Only during active games */}
+          {gameStarted && !gameOver && (
+            <div className="mt-8">
+              <h2 className="text-2xl font-bold text-white mb-4 flex items-center gap-2">
+                <FaCrown className="text-yellow-400" />
+                Declare Winner (Admin Only)
+              </h2>
+              <div className="bg-gray-700 p-4 rounded-lg border border-yellow-500">
+                <div className="text-white mb-4">
+                  <p className="text-yellow-300 font-semibold">Admin Power: Manually declare game winner</p>
+                  <p className="text-sm text-gray-300 mt-1">Use this to end the game and declare a winner regardless of current game state</p>
+                </div>
+                
+                <div>
+                  <h3 className="text-white font-bold mb-3">Select Winner:</h3>
+                  <div className="flex gap-3">
+                    {players.map((player) => (
                       <button
                         key={player.playerId}
-                        onClick={() => setGodsHandTargetPlayer(index)}
-                        className={`px-4 py-2 rounded ${
-                          godsHandTargetPlayer === index ? 'bg-blue-600' : 'bg-gray-600'
-                        }`}
+                        onClick={() => handleDeclareWinner(player.playerId)}
+                        className="bg-yellow-600 hover:bg-yellow-700 text-white px-4 py-2 rounded-lg transition-colors flex items-center gap-2"
                       >
-                        {player.name}
+                        <FaCrown />
+                        Declare {player.name} Winner
                       </button>
                     ))}
                   </div>
-                  
-                  {godsHandTargetPlayer !== null && (
-                    <>
-                      <p className="text-gray-300">Select a quadrant on enemy's board:</p>
-                      <div className="grid grid-cols-2 gap-2 max-w-xs mx-auto">
-                        {[0, 1, 2, 3].map((quadrant) => (
-                          <button
-                            key={quadrant}
-                            onClick={() => handleGodsHandActivation(godsHandTargetPlayer, quadrant)}
-                            className="relative p-8 border-2 border-purple-500 bg-gray-700 hover:bg-gray-600 rounded"
-                          >
-                            <div className="absolute inset-0 flex items-center justify-center text-white text-xl">
-                              Quadrant {quadrant + 1}
-                            </div>
-                          </button>
-                        ))}
-                      </div>
-                      <p className="text-xs text-gray-400 mt-2">
-                        God's Hand will hit ALL cells in the selected quadrant, ignoring all defenses
-                      </p>
-                      <button
-                        onClick={() => {
-                          setShowGodsHandControls(false);
-                          setGodsHandTargetPlayer(null);
-                        }}
-                        className="px-4 py-2 bg-gray-600 text-white rounded hover:bg-gray-700"
-                      >
-                        Cancel
-                      </button>
-                    </>
-                  )}
                 </div>
-              )}
+              </div>
             </div>
           )}
           
@@ -619,19 +675,19 @@ const AdminRoomView = () => {
                           );
                           
                           // Different display based on ability type
-                          if (['NUKE', 'ANNIHILATE', 'GODS_HAND'].includes(move.name)) {
+                          if (['NUKE', 'ANNIHILATE'].includes(move.name)) {
                             target = move.cellLabel || `${String.fromCharCode(65 + move.targetCol)}${move.targetRow + 1}`;
                             result = move.hitCount !== undefined 
                               ? `Hit ${move.hitCount} ship parts` 
                               : move.extraHits !== undefined 
                                 ? `Hit ${move.extraHits.length + (move.isHit ? 1 : 0)} cells` 
                                 : 'Applied';
+                          } else if (move.name === 'GODS_HAND') {
+                            target = `Quadrant ${(move.quadrantIndex || 0) + 1}`;
+                            result = `Destroyed ${move.affectedCells?.length || 16} cells, hit ${move.hitCount || 0} ships`;
                           } else if (move.name === 'SCANNER') {
                             target = move.cellLabel || `${String.fromCharCode(65 + move.targetCol)}${move.targetRow + 1} (2x2 area)`;
                             result = `Found ${move.shipCount} ship parts`;
-                          } else if (move.name === 'REINFORCEMENT') {
-                            target = move.cellLabel || `${String.fromCharCode(65 + move.targetCol)}${move.targetRow + 1} (${move.isVertical ? 'vertical' : 'horizontal'})`;
-                            result = 'Ship added';
                           } else if (move.name === 'HACKER') {
                             target = 'Enemy ship';
                             result = move.revealedRow !== undefined 
@@ -690,6 +746,46 @@ const AdminRoomView = () => {
                           );
                           target = "N/A";
                           result = "Turn skipped";
+                        } else if (move.type === 'admin_action') {
+                          action = (
+                            <div>
+                              <span className="text-purple-400 flex items-center gap-1">
+                                <FaCrown />
+                                Admin Action
+                              </span>
+                              <div className="text-xs mt-1 bg-purple-900 px-1.5 py-0.5 rounded inline-block text-purple-300">
+                                {move.action}
+                              </div>
+                            </div>
+                          );
+                          
+                          if (move.action === 'DECLARE_WINNER') {
+                            const winnerName = players.find(p => p.playerId === move.winnerId)?.name || move.winnerId;
+                            target = winnerName;
+                            result = "Game Ended";
+                          } else {
+                            target = "N/A";
+                            result = "Admin Command";
+                          }
+                        } else if (move.type === 'emote') {
+                          action = (
+                            <div>
+                              <span className={`flex items-center gap-1 ${
+                                move.category === 'mock' ? 'text-red-400' :
+                                move.category === 'praise' ? 'text-green-400' : 'text-blue-400'
+                              }`}>
+                                😊 Emote
+                              </span>
+                              <div className={`text-xs mt-1 px-1.5 py-0.5 rounded inline-block ${
+                                move.category === 'mock' ? 'bg-red-900 text-red-300' :
+                                move.category === 'praise' ? 'bg-green-900 text-green-300' : 'bg-blue-900 text-blue-300'
+                              }`}>
+                                {move.category.toUpperCase()}
+                              </div>
+                            </div>
+                          );
+                          target = "Opponent";
+                          result = move.text;
                         } else {
                           // Regular attack
                           action = (

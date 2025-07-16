@@ -24,12 +24,7 @@ const GameRoom_Desktop = ({
   gridSize = 8,
   handleAttack = () => {},
   activeAbility = null,
-  reinforcementVertical = false,
   annihilateVertical = false,
-  // New ability orientation states
-  salvoVertical = false,
-  volleyFireVertical = false,
-  reconFlybyVertical = false,
   hackerResult = null,
   // Abilities
   abilities = {},
@@ -149,14 +144,18 @@ const GameRoom_Desktop = ({
         setTurnTimeLeft(turnData.timeRemaining || 30);
         
         // If turn time runs out, trigger turn timeout
-        if (turnData.timeRemaining <= 0 && isMyTurn && !gameData?.gameOver) {
-          onTurnTimeout();
+        if (turnData.timeRemaining <= 0 && !gameData?.gameOver) {
+          // Only trigger timeout if this is actually the current player's turn
+          const currentPlayerId = localStorage.getItem('battleshipPlayerId');
+          if (gameData?.currentTurn === currentPlayerId) {
+            onTurnTimeout();
+          }
         }
       }
     });
     
     return () => unsubscribe();
-  }, [roomId, isMyTurn, gameData?.gameOver, onTurnTimeout]);
+  }, [roomId, isMyTurn, gameData?.gameOver, gameData?.currentTurn, onTurnTimeout]);
 
   // Initialize turn timer when turn changes
   useEffect(() => {
@@ -189,14 +188,18 @@ const GameRoom_Desktop = ({
           });
           
           if (newTimeRemaining <= 0) {
-            onTurnTimeout();
+            // Only trigger timeout if this is actually the current player's turn
+            const currentPlayerId = localStorage.getItem('battleshipPlayerId');
+            if (gameData?.currentTurn === currentPlayerId) {
+              onTurnTimeout();
+            }
           }
         }
       });
     }, 1000);
     
     return () => clearInterval(turnInterval);
-  }, [isMyTurn, isPaused, gameData?.gameOver, onTurnTimeout, roomId]);
+  }, [isMyTurn, isPaused, gameData?.gameOver, gameData?.currentTurn, onTurnTimeout, roomId]);
   // Format time display
   const formatTime = (seconds) => {
     const mins = Math.floor(seconds / 60);
@@ -464,12 +467,7 @@ const GameRoom_Desktop = ({
                   gridSize={8}
                   onCellClick={handleAttack}
                   activeAbility={activeAbility}
-                  reinforcementVertical={reinforcementVertical}
                   annihilateVertical={annihilateVertical}
-                  salvoVertical={salvoVertical}
-                  volleyFireVertical={volleyFireVertical}
-                  reconFlybyVertical={reconFlybyVertical}
-                  torpedoVertical={reconFlybyVertical}
                   hackerResult={hackerResult}
                 />
               </div>
@@ -489,51 +487,28 @@ const GameRoom_Desktop = ({
                   >
                     {/* Show only player's granted abilities */}
                     {Object.entries(abilities)
-                      .filter(([key, data]) => key !== 'GODS_HAND' && data.active) // Only show granted abilities
+                      .filter(([key, data]) => data.active) // Only show granted abilities
                       .map(([key, playerAbility]) => {
                         const ability = ABILITIES[key];
                         const isUsed = playerAbility?.used;
                         const isSelected = activeAbility === key;
-                        const hasAlignment = ['REINFORCEMENT', 'ANNIHILATE', 'SALVO', 'VOLLEY_FIRE', 'RECON_FLYBY', 'TORPEDO'].includes(key);
-                        const isVertical = 
-                          key === 'REINFORCEMENT' ? reinforcementVertical :
-                          key === 'ANNIHILATE' ? annihilateVertical :
-                          key === 'SALVO' ? salvoVertical :
-                          key === 'VOLLEY_FIRE' ? volleyFireVertical :
-                          key === 'RECON_FLYBY' ? reconFlybyVertical :
-                          false;
+                        const hasAlignment = ['ANNIHILATE'].includes(key);
+                        const isVertical = key === 'ANNIHILATE' ? annihilateVertical : false;
                         
                         const handleAbilityClick = (e) => {
                           e.preventDefault();
                           if (!isMyTurn) return;
                           
                           if (isSelected) {
-                            // If already selected, clicking again will:
-                            // 1. Change alignment if ability supports it
-                            // 2. Or deselect the ability
-                            if (hasAlignment) {
-                              // Toggle alignment
-                              const toggleProp = 
-                                key === 'REINFORCEMENT' ? 'reinforcementVertical' :
-                                key === 'ANNIHILATE' ? 'annihilateVertical' :
-                                key === 'SALVO' ? 'salvoVertical' :
-                                key === 'VOLLEY_FIRE' ? 'volleyFireVertical' :
-                                key === 'RECON_FLYBY' ? 'reconFlybyVertical' :
-                                null;
-                              
-                              if (toggleProp && onUseAbility) {
-                                onUseAbility(key, { toggleAlignment: true });
-                              }
-                            } else {
-                              // Deselect ability
-                              onUseAbility(null);
-                            }
+                            // If already selected, clicking again will deselect
+                            onUseAbility(null);
                           } else if (!isUsed) {
                             // Select ability
                             onUseAbility(key);
                           }
                         };
-                          return (
+
+                        return (
                           <div
                             key={key}
                             onClick={handleAbilityClick}
@@ -653,12 +628,7 @@ const GameRoom_Desktop = ({
                     isPlayerGrid={true}
                     gridSize={gridSize}
                     activeAbility={activeAbility}
-                    reinforcementVertical={reinforcementVertical}
                     annihilateVertical={annihilateVertical}
-                    salvoVertical={salvoVertical}
-                    volleyFireVertical={volleyFireVertical}
-                    reconFlybyVertical={reconFlybyVertical}
-                    torpedoVertical={reconFlybyVertical}
                     hackerResult={hackerResult}
                   />
                 </div>

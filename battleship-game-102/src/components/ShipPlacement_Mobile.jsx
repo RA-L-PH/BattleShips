@@ -481,8 +481,15 @@ const ShipPlacement_Mobile = () => {
         const players = Object.values(room.players || {});
         const allPlayersReady = players.length === 2 && players.every(player => player.ready);
 
+        console.log('AI Game Debug:', {
+          gameMode,
+          playerCount: players.length,
+          players: players.map(p => ({ name: p.name, ready: p.ready, isAI: p.isAI })),
+          allPlayersReady
+        });
+
         if (allPlayersReady) {
-          if (gameMode === 'random' || gameMode === 'friendly') {
+          if (gameMode === 'random' || gameMode === 'friendly' || gameMode === 'ai') {
             setStatusMessage("Both players ready! Starting game in 3 seconds...");
             
             setTimeout(() => {
@@ -491,8 +498,13 @@ const ShipPlacement_Mobile = () => {
                 setStatusMessage("Game starting in 1...");
                 setTimeout(async () => {
                   try {
-                    const { startGame } = await import('../services/adminService');
-                    await startGame(roomId);
+                    if (gameMode === 'ai') {
+                      const { startAiGame } = await import('../services/aiGameService');
+                      await startAiGame(roomId);
+                    } else {
+                      const { startGame } = await import('../services/adminService');
+                      await startGame(roomId);
+                    }
                     setStatusMessage("Starting game...");
                   } catch (error) {
                     console.error("Error starting game:", error);
@@ -570,10 +582,17 @@ const ShipPlacement_Mobile = () => {
       
       if (isSaved) {
         const otherPlayer = players.find(([id]) => id !== playerId);
+        const gameMode = room.gameMode || 'admin';
+        
         if (otherPlayer && !otherPlayer[1].ready) {
           setStatusMessage("Waiting for other player to get ready...");
         } else {
-          setStatusMessage("Both players ready! Waiting for admin to start the game...");
+          // Check if it's an AI game or auto-start game mode
+          if (gameMode === 'ai' || gameMode === 'random' || gameMode === 'friendly') {
+            setStatusMessage("Both players ready! Starting game automatically...");
+          } else {
+            setStatusMessage("Both players ready! Waiting for admin to start the game...");
+          }
         }
       }
         

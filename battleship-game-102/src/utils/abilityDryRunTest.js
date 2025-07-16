@@ -19,38 +19,6 @@ const testResults = {
  * Ability Turn Switch Validation
  * Checks if the ability properly switches turns after execution
  */
-const validateTurnSwitch = (abilityName, abilityFunction) => {
-  const issues = [];
-  
-  // Search for currentTurn updates in the function code
-  const functionCode = abilityFunction.toString();
-  
-  // Check if ability switches turns
-  const hasTurnSwitch = functionCode.includes('currentTurn') && 
-                       functionCode.includes('opponentId');
-  
-  if (!hasTurnSwitch) {
-    issues.push(`${abilityName}: Does not switch turns after execution`);
-  }
-  
-  // Check if ability marks itself as used
-  const marksAsUsed = functionCode.includes('/used') && 
-                     functionCode.includes('true');
-  
-  if (!marksAsUsed) {
-    issues.push(`${abilityName}: Does not mark ability as used`);
-  }
-  
-  // Check if ability records the move
-  const recordsMove = functionCode.includes('moves/') && 
-                     functionCode.includes('timestamp');
-  
-  if (!recordsMove) {
-    issues.push(`${abilityName}: Does not record move in game history`);
-  }
-  
-  return issues;
-};
 
 /**
  * Attack Abilities Dry Run Tests
@@ -59,7 +27,7 @@ const testAttackAbilities = () => {
   console.log('🔥 Testing Attack Abilities...\n');
   
   const attackAbilities = Object.entries(ABILITIES)
-    .filter(([key, ability]) => ability.type === 'attack');
+    .filter(([, ability]) => ability.type === 'attack');
   
   attackAbilities.forEach(([key, ability]) => {
     console.log(`Testing ${ability.name} (${key}):`);
@@ -77,57 +45,6 @@ const testAttackAbilities = () => {
       case 'ANNIHILATE':
         console.log('  ✅ Expected: 3 consecutive cells (horizontal/vertical)');
         console.log('  ✅ Expected: Orientation toggles available');
-        break;
-        
-      case 'SALVO':
-        console.log('  ✅ Expected: 3 shots in straight line');
-        console.log('  ✅ Expected: Orientation selection');
-        break;
-        
-      case 'PRECISION_STRIKE':
-        console.log('  ✅ Expected: Single shot + adjacent follow-up if hit');
-        console.log('  ⚠️  Special: May not switch turns if follow-up required');
-        testResults.warnings.push(`${key}: May require follow-up shot before turn switch`);
-        break;
-        
-      case 'VOLLEY_FIRE':
-        console.log('  ✅ Expected: 3x1 or 1x3 simultaneous attack');
-        break;
-        
-      case 'TORPEDO_RUN':
-        console.log('  ✅ Expected: Scans row/column + free shot if hit');
-        console.log('  ⚠️  Special: May require follow-up shot');
-        testResults.warnings.push(`${key}: May require follow-up shot before turn switch`);
-        break;
-        
-      case 'DECOY_SHOT':
-        console.log('  ✅ Expected: Shot + second shot if missed');
-        console.log('  ⚠️  Special: May require second shot before turn switch');
-        testResults.warnings.push(`${key}: May require second shot before turn switch`);
-        break;
-        
-      case 'BARRAGE':
-        console.log('  ✅ Expected: 5 individual shots');
-        console.log('  ⚠️  Special: Multi-step selection process');
-        testResults.warnings.push(`${key}: Multi-step selection may delay turn switch`);
-        break;
-        
-      case 'DEPTH_CHARGE':
-        console.log('  ✅ Expected: Single shot + adjacent if hit');
-        break;
-        
-      case 'EMP_BLAST':
-        console.log('  ✅ Expected: 2x2 attack + support ability disable');
-        break;
-        
-      case 'PINPOINT_STRIKE':
-        console.log('  ✅ Expected: Single shot with 2x damage');
-        break;
-        
-      case 'CHAIN_REACTION':
-        console.log('  ✅ Expected: Single shot + free shot if ship destroyed');
-        console.log('  ⚠️  Special: May require follow-up shot');
-        testResults.warnings.push(`${key}: May require follow-up shot before turn switch`);
         break;
     }
     
@@ -150,7 +67,7 @@ const testDefenseAbilities = () => {
   console.log('🛡️  Testing Defense Abilities...\n');
   
   const defenseAbilities = Object.entries(ABILITIES)
-    .filter(([key, ability]) => ability.type === 'defense');
+    .filter(([, ability]) => ability.type === 'defense');
   
   defenseAbilities.forEach(([key, ability]) => {
     console.log(`Testing ${ability.name} (${key}):`);
@@ -168,52 +85,6 @@ const testDefenseAbilities = () => {
         console.log('  ✅ Expected: Installs jam protection');
         console.log('  ✅ Expected: Blocks next opponent ability');
         break;
-        
-      case 'REPAIR_CREW':
-        console.log('  ✅ Expected: Repairs previously hit square');
-        break;
-        
-      case 'CLOAK':
-        console.log('  ✅ Expected: Makes ship untargetable for 2 turns');
-        console.log('  ⚠️  Special: Requires ship selection');
-        testResults.warnings.push(`${key}: Requires ship selection before activation`);
-        break;
-        
-      case 'REINFORCE':
-        console.log('  ✅ Expected: Protects 1x1 square for next turn');
-        break;
-        
-      case 'EVASIVE_MANEUVERS':
-        console.log('  ✅ Expected: Swaps two adjacent ship squares');
-        console.log('  ⚠️  Special: Requires two ship selections');
-        testResults.warnings.push(`${key}: Requires two ship selections`);
-        break;
-        
-      case 'MINEFIELD':
-        console.log('  ✅ Expected: Places 2x2 minefield with +1 damage');
-        break;
-        
-      case 'EMERGENCY_PATCH':
-        console.log('  ✅ Expected: Repairs recently hit square');
-        break;
-        
-      case 'SMOKE_SCREEN':
-        console.log('  ✅ Expected: Obscures 3x3 area from Scanner/Hacker');
-        break;
-        
-      case 'DEFENSIVE_NET':
-        console.log('  ✅ Expected: Reduces damage in 1x3 or 3x1 area');
-        break;
-        
-      case 'SONAR_DECOY':
-        console.log('  ✅ Expected: Places decoy for false Scanner readings');
-        break;
-        
-      case 'BRACE_FOR_IMPACT':
-        console.log('  ✅ Expected: Reduces damage to one ship for next turn');
-        console.log('  ⚠️  Special: Requires ship selection');
-        testResults.warnings.push(`${key}: Requires ship selection before activation`);
-        break;
     }
     
     if (issues.length === 0) {
@@ -229,15 +100,15 @@ const testDefenseAbilities = () => {
 };
 
 /**
- * Support Abilities Dry Run Tests
+ * Recon Abilities Dry Run Tests
  */
-const testSupportAbilities = () => {
-  console.log('🔍 Testing Support Abilities...\n');
+const testReconAbilities = () => {
+  console.log('🔍 Testing Recon Abilities...\n');
   
-  const supportAbilities = Object.entries(ABILITIES)
-    .filter(([key, ability]) => ability.type === 'support');
+  const reconAbilities = Object.entries(ABILITIES)
+    .filter(([, ability]) => ability.type === 'recon');
   
-  supportAbilities.forEach(([key, ability]) => {
+  reconAbilities.forEach(([key, ability]) => {
     console.log(`Testing ${ability.name} (${key}):`);
     console.log(`  Description: ${ability.description}`);
     
@@ -252,46 +123,6 @@ const testSupportAbilities = () => {
       case 'SCANNER':
         console.log('  ✅ Expected: Scans 2x2 area, returns ship count');
         break;
-        
-      case 'SONAR_PULSE':
-        console.log('  ✅ Expected: Scans 3x3 area, returns yes/no for ships');
-        break;
-        
-      case 'INTEL_LEAK':
-        console.log('  ✅ Expected: Reveals orientation of random enemy ship');
-        break;
-        
-      case 'TACTICAL_READOUT':
-        console.log('  ✅ Expected: Reveals opponent\'s last ability type');
-        break;
-        
-      case 'JAMMING_SIGNAL':
-        console.log('  ✅ Expected: Disables opponent Scanner/Hacker next turn');
-        break;
-        
-      case 'SPOTTER_PLANE':
-        console.log('  ✅ Expected: Reveals if ships adjacent to empty square');
-        break;
-        
-      case 'RECONNAISSANCE_FLYBY':
-        console.log('  ✅ Expected: Counts unique ships in 5x1 or 1x5 line');
-        break;
-        
-      case 'TARGET_ANALYSIS':
-        console.log('  ✅ Expected: Shows remaining health of hit ship');
-        break;
-        
-      case 'OPPONENTS_PLAYBOOK':
-        console.log('  ✅ Expected: Reveals last offensive ability used');
-        break;
-        
-      case 'WEATHER_FORECAST':
-        console.log('  ✅ Expected: Predicts next shot hit/miss');
-        break;
-        
-      case 'COMMUNICATIONS_INTERCEPT':
-        console.log('  ✅ Expected: Reveals random ship info');
-        break;
     }
     
     if (issues.length === 0) {
@@ -303,33 +134,6 @@ const testSupportAbilities = () => {
       issues.forEach(issue => console.log(`     - ${issue}`));
       console.log('');
     }
-  });
-};
-
-/**
- * Special Abilities Dry Run Tests
- */
-const testSpecialAbilities = () => {
-  console.log('⚡ Testing Special Abilities...\n');
-  
-  const specialAbilities = Object.entries(ABILITIES)
-    .filter(([key, ability]) => ability.type === 'special');
-  
-  specialAbilities.forEach(([key, ability]) => {
-    console.log(`Testing ${ability.name} (${key}):`);
-    console.log(`  Description: ${ability.description}`);
-    
-    switch (key) {
-      case 'GODS_HAND':
-        console.log('  ✅ Expected: Destroys entire 4x4 quadrant');
-        console.log('  ✅ Expected: Admin-only ability');
-        console.log('  ⚠️  Special: May not follow normal turn rules');
-        testResults.warnings.push(`${key}: Admin ability may have special turn handling`);
-        break;
-    }
-    
-    testResults.passed.push(key);
-    console.log('  ✅ PASSED\n');
   });
 };
 
@@ -417,8 +221,7 @@ export const runAbilityDryRunTests = () => {
   // Test each ability category
   testAttackAbilities();
   testDefenseAbilities();
-  testSupportAbilities();
-  testSpecialAbilities();
+  testReconAbilities();
   
   // Test critical functionality
   testTurnSwitching();
